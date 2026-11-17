@@ -61,7 +61,7 @@ final class HostViewPropsTests: XCTestCase {
     XCTAssertEqual(props.source, .base64("AA=="))
     props.documentBase64 = ""
     XCTAssertEqual(props.source, .json("{}"))
-    props.documentJson = nil
+    props.documentJson = ""
     XCTAssertEqual(props.source, .uri("https://example.com/a.rc", headers: ["Authorization", "t"]))
   }
 

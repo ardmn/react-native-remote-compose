@@ -23,6 +23,14 @@ inline NSString *toNSString(const std::string &value) {
   return [[NSString alloc] initWithBytes:value.data() length:value.size() encoding:NSUTF8StringEncoding] ?: @"";
 }
 
+inline NSArray<NSString *> *toNSStrings(const std::vector<std::string> &values) {
+  NSMutableArray<NSString *> *result = [NSMutableArray arrayWithCapacity:values.size()];
+  for (const auto &value : values) {
+    [result addObject:toNSString(value)];
+  }
+  return result;
+}
+
 inline RemoteComposeNamedValueType toRemoteComposeNamedValueType(const std::string &value) {
   if (value == "float") {
     return RemoteComposeNamedValueTypeFloat;
@@ -94,11 +102,21 @@ inline NSArray<RemoteComposeNamedValue *> *toObjC(const std::vector<RemoteCompos
   NSMutableArray<RemoteComposeNamedValue *> *result = [NSMutableArray arrayWithCapacity:items.size()];
   for (const auto &item : items) {
     [result addObject:[[RemoteComposeNamedValue alloc] initWithName:toNSString(item.name)
-                                                valueType:toRemoteComposeNamedValueType(item.valueType)
-                                                text:toNSString(item.text)
-                                                number:item.number]];
+      valueType:toRemoteComposeNamedValueType(item.valueType)
+      text:toNSString(item.text)
+      number:item.number]];
   }
   return result;
+}
+
+inline RemoteComposeProps *toObjC(const RemoteComposeViewProps &props) {
+  return [[RemoteComposeProps alloc] initWithDocumentBase64:toNSString(props.documentBase64)
+      documentUri:toNSString(props.documentUri)
+      documentHeaders:toNSStrings(props.documentHeaders)
+      documentJson:toNSString(props.documentJson)
+      namedValues:toObjC(props.namedValues)
+      theme:toObjC(props.theme)
+      lenient:props.lenient];
 }
 
 inline RemoteComposeViewEventEmitter::OnRemoteAction toCpp(RemoteComposeActionEvent *event) {

@@ -105,7 +105,9 @@ type EnumModel = {
 type FieldType =
   | { kind: 'scalar'; scalar: Scalar }
   | { kind: 'list'; scalar: Scalar }
-  | { kind: 'enum'; model: EnumModel };
+  | { kind: 'enum'; model: EnumModel }
+  /** An array prop of object payloads. Props only. */
+  | { kind: 'structList'; model: StructModel };
 
 type Field = { name: string; type: FieldType };
 
@@ -119,6 +121,8 @@ type StructModel = {
 type EventModel = StructModel & { registrationName: string; eventName: string };
 
 type Contract = {
+  /** Every prop of the component, as one value: what iOS hands from C++ to Swift. */
+  props: StructModel;
   enums: EnumModel[];
   /** Object payloads that arrive as array props (JS → native). */
   propStructs: StructModel[];
@@ -233,20 +237,25 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
     });
 
   const propStructs: StructModel[] = [];
-  for (const prop of schema.props) {
+  const propFields = schema.props.map((prop): Field => {
     const t = prop.typeAnnotation;
     if (t.type === 'StringEnumTypeAnnotation') {
-      enumFrom(
+      const model = enumFrom(
         prop.name,
         t.options,
         component + capitalize(prop.name),
         t.default
       );
-    } else if (
-      t.type === 'ArrayTypeAnnotation' &&
-      t.elementType.type === 'ObjectTypeAnnotation'
-    ) {
-      propStructs.push({
+      return { name: prop.name, type: { kind: 'enum', model } };
+    }
+    if (t.type === 'ArrayTypeAnnotation') {
+      if (t.elementType.type !== 'ObjectTypeAnnotation') {
+        return {
+          name: prop.name,
+          type: { kind: 'list', scalar: scalarOf(t.elementType, prop.name) },
+        };
+      }
+      const model: StructModel = {
         key: prop.name,
         name: nameFor(prop.name),
         // Codegen names a nested enum after the component and the field alone.
@@ -256,9 +265,21 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
           (field) => component + capitalize(field)
         ),
         cpp: `${component}${capitalize(prop.name)}Struct`,
-      });
+      };
+      propStructs.push(model);
+      return { name: prop.name, type: { kind: 'structList', model } };
     }
-  }
+    return {
+      name: prop.name,
+      type: { kind: 'scalar', scalar: scalarOf(t, prop.name) },
+    };
+  });
+  const props: StructModel = {
+    key: 'props',
+    name: 'Props',
+    fields: propFields,
+    cpp: `${component}Props`,
+  };
 
   const emitter = `${component}EventEmitter`;
   const events = schema.events.map((event): EventModel => {
@@ -299,7 +320,7 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
   if (unused.length > 0) {
     throw new Error(`NAMES has entries the spec no longer has: ${unused}`);
   }
-  return { enums, propStructs, events };
+  return { props, enums, propStructs, events };
 }
 
 /** The members of `export type <alias> = 'a' | 'b' | …` in the spec, read with TypeScript's parser. */
@@ -364,6 +385,8 @@ const KOTLIN_RN: Record<Scalar, string> = {
 
 function kotlinType(type: FieldType): string {
   switch (type.kind) {
+    case 'structList':
+      return `List<${type.model.name}>`;
     case 'scalar':
       return KOTLIN_TYPE[type.scalar];
     case 'list':
@@ -406,6 +429,7 @@ function kotlinRead(field: Field): string {
   switch (t.kind) {
     case 'enum':
       return `${t.model.name}.fromWire(map.getString(${key}))`;
+    case 'structList':
     case 'list':
       throw new Error(
         `${field.name}: list fields in prop payloads are not supported`
@@ -449,6 +473,8 @@ function kotlinWrite(field: Field): string {
   const key = `"${field.name}"`;
   const t = field.type;
   switch (t.kind) {
+    case 'structList':
+      throw new Error(`${field.name}: object lists are props, never events`);
     case 'enum':
       return `putString(${key}, ${field.name}.wireValue)`;
     case 'list': {
@@ -467,6 +493,7 @@ function kotlinDefault(type: FieldType): string {
   switch (type.kind) {
     case 'scalar':
       return ` = ${KOTLIN_ZERO[type.scalar]}`;
+    case 'structList':
     case 'list':
       return ' = emptyList()';
     case 'enum':
@@ -564,6 +591,8 @@ function swiftType(type: FieldType): string {
       return SWIFT_TYPE[type.scalar];
     case 'list':
       return `[${SWIFT_TYPE[type.scalar]}]`;
+    case 'structList':
+      return `[${SWIFT_PREFIX}${type.model.name}]`;
     case 'enum':
       return SWIFT_PREFIX + type.model.name;
   }
@@ -573,6 +602,7 @@ function swiftDefault(type: FieldType): string {
   switch (type.kind) {
     case 'scalar':
       return ` = ${SWIFT_ZERO[type.scalar]}`;
+    case 'structList':
     case 'list':
       return ' = []';
     case 'enum':
@@ -645,6 +675,8 @@ function swift(contract: Contract): string {
       swiftClass(s, `One element of the \`${s.key}\` prop.`, false),
       '',
     ]),
+    swiftClass(contract.props, "All of the view's props, as one value.", false),
+    '',
     ...contract.events.flatMap((e) => [
       swiftClass(e, `The \`${e.registrationName}\` event.`, true),
       '',
@@ -710,30 +742,56 @@ function cppEnumConversions(model: EnumModel): string {
       ].join('\n');
 }
 
+/** `[[<Swift class> alloc] initWith…]` from the C++ struct named [source]. */
+function objcInit(model: StructModel, source: string): string {
+  const args = model.fields.map((f, i) => {
+    const v = `${source}.${f.name}`;
+    let value: string;
+    switch (f.type.kind) {
+      case 'enum':
+        value =
+          f.type.model.cpp === null
+            ? `to${SWIFT_PREFIX}${f.type.model.name}(${v})`
+            : `toObjC(${v})`;
+        break;
+      case 'structList':
+        value = `toObjC(${v})`;
+        break;
+      case 'list':
+        if (f.type.scalar !== 'string') {
+          throw new Error(
+            `${f.name}: only string lists are supported in props`
+          );
+        }
+        value = `toNSStrings(${v})`;
+        break;
+      case 'scalar':
+        value = f.type.scalar === 'string' ? `toNSString(${v})` : v;
+        break;
+    }
+    return `${i === 0 ? '' : f.name}:${value}`;
+  });
+  const first = capitalize(model.fields[0]!.name);
+  return `[[${SWIFT_PREFIX}${model.name} alloc] initWith${first}${args.join('\n      ')}]`;
+}
+
 function cppPropStruct(model: StructModel): string {
   const swiftName = SWIFT_PREFIX + model.name;
-  const args = model.fields
-    .map((f, i) => {
-      const label = i === 0 ? '' : f.name;
-      const value =
-        f.type.kind === 'enum'
-          ? f.type.model.cpp === null
-            ? `to${SWIFT_PREFIX}${f.type.model.name}(item.${f.name})`
-            : `toObjC(item.${f.name})`
-          : f.type.kind === 'scalar' && f.type.scalar === 'string'
-            ? `toNSString(item.${f.name})`
-            : `item.${f.name}`;
-      return `${label}:${value}`;
-    })
-    .join('\n                                                ');
-  const firstLabel = capitalize(model.fields[0]!.name);
   return [
     `inline NSArray<${swiftName} *> *toObjC(const std::vector<${model.cpp}> &items) {`,
     `  NSMutableArray<${swiftName} *> *result = [NSMutableArray arrayWithCapacity:items.size()];`,
     '  for (const auto &item : items) {',
-    `    [result addObject:[[${swiftName} alloc] initWith${firstLabel}${args}]];`,
+    `    [result addObject:${objcInit(model, 'item')}];`,
     '  }',
     '  return result;',
+    '}',
+  ].join('\n');
+}
+
+function cppProps(model: StructModel): string {
+  return [
+    `inline ${SWIFT_PREFIX}${model.name} *toObjC(const ${model.cpp} &props) {`,
+    `  return ${objcInit(model, 'props')};`,
     '}',
   ].join('\n');
 }
@@ -744,6 +802,8 @@ function cppEvent(model: EventModel): string {
   const fields = model.fields.map((f) => {
     const v = `event.${f.name}`;
     switch (f.type.kind) {
+      case 'structList':
+        throw new Error(`${f.name}: object lists are props, never events`);
       case 'enum':
         return `      .${f.name} = toCpp(${v}),`;
       case 'scalar':
@@ -808,8 +868,18 @@ function objcpp(contract: Contract): string {
     '  return [[NSString alloc] initWithBytes:value.data() length:value.size() encoding:NSUTF8StringEncoding] ?: @"";',
     '}',
     '',
+    'inline NSArray<NSString *> *toNSStrings(const std::vector<std::string> &values) {',
+    '  NSMutableArray<NSString *> *result = [NSMutableArray arrayWithCapacity:values.size()];',
+    '  for (const auto &value : values) {',
+    '    [result addObject:toNSString(value)];',
+    '  }',
+    '  return result;',
+    '}',
+    '',
     ...contract.enums.flatMap((e) => [cppEnumConversions(e), '']),
     ...contract.propStructs.flatMap((s) => [cppPropStruct(s), '']),
+    cppProps(contract.props),
+    '',
     ...contract.events.flatMap((e) => [cppEvent(e), '']),
     '} // namespace remotecompose::contract',
     '',

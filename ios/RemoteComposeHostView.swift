@@ -21,7 +21,6 @@ public final class RemoteComposeHostView: UIView {
     let configuration: RemoteComposePlayerConfiguration
   }
 
-  private var pendingProps = HostViewProps()
   /// The props last applied; the shown (or loading) document was requested with them.
   private var committedProps: HostViewProps?
   private var shown: Shown?
@@ -44,36 +43,10 @@ public final class RemoteComposeHostView: UIView {
 
   // MARK: - Props
 
-  @objc public func setDocumentBase64(_ value: String?) {
-    pendingProps.documentBase64 = value
-  }
-
-  @objc public func setDocumentUri(_ value: String?) {
-    pendingProps.documentUri = value
-  }
-
-  @objc public func setDocumentHeaders(_ value: [String]) {
-    pendingProps.documentHeaders = value
-  }
-
-  @objc public func setDocumentJson(_ value: String?) {
-    pendingProps.documentJson = value
-  }
-
-  @objc public func setNamedValues(_ value: [RemoteComposeNamedValue]) {
-    pendingProps.namedValues = value.map(HostValue.init)
-  }
-
-  @objc public func setTheme(_ value: RemoteComposeTheme) {
-    pendingProps.theme = value
-  }
-
-  @objc public func setLenient(_ value: Bool) {
-    pendingProps.lenient = value
-  }
-
-  @objc public func commit() {
-    let props = pendingProps
+  /// Applies a new set of props: reloads when the source changed, rebuilds the player when only
+  /// its configuration changed, and otherwise just writes the host values.
+  @objc public func update(_ newProps: RemoteComposeProps) {
+    let props = HostViewProps(newProps)
     let previous = committedProps
     committedProps = props
     if props.source != previous?.source {
@@ -90,7 +63,6 @@ public final class RemoteComposeHostView: UIView {
     loadTask?.cancel()
     generation += 1
     removePlayer()
-    pendingProps = HostViewProps()
     committedProps = nil
     shown = nil
   }

@@ -117,6 +117,28 @@ public final class RemoteComposeNamedValue: NSObject {
   }
 }
 
+/// All of the view's props, as one value.
+@objc(RemoteComposeProps)
+public final class RemoteComposeProps: NSObject {
+  @objc public let documentBase64: String
+  @objc public let documentUri: String
+  @objc public let documentHeaders: [String]
+  @objc public let documentJson: String
+  @objc public let namedValues: [RemoteComposeNamedValue]
+  @objc public let theme: RemoteComposeTheme
+  @objc public let lenient: Bool
+
+  @objc public init(documentBase64: String, documentUri: String, documentHeaders: [String], documentJson: String, namedValues: [RemoteComposeNamedValue], theme: RemoteComposeTheme, lenient: Bool) {
+    self.documentBase64 = documentBase64
+    self.documentUri = documentUri
+    self.documentHeaders = documentHeaders
+    self.documentJson = documentJson
+    self.namedValues = namedValues
+    self.theme = theme
+    self.lenient = lenient
+  }
+}
+
 /// The `onRemoteAction` event.
 @objc(RemoteComposeActionEvent)
 public final class RemoteComposeActionEvent: NSObject {
