@@ -21,3 +21,11 @@ reason = """activesupport < 8.0.5.2 (DoS via safe_constantize on attacker-contro
 tooling only (example/Gemfile.lock, a CocoaPods dependency), run on developer machines and CI over
 our own Podfile; never shipped in the library or the apps. Not fixable today: every release of
 cocoapods-core (1.17.0 included) requires activesupport < 8, and Rails has no 7.x fix."""
+
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2027-02-17
+reason = """picomatch through 4.0.7 (ReDoS through repeated extglobs such as +(*) in the pattern). Dev
+tooling only: Metro, Expo CLI, Jest and @parcel/watcher match glob patterns from our own config;
+none takes a pattern from outside, and none is shipped in the library or the apps. No fixed
+release exists yet (4.0.7 is the latest); remove this once one does."""

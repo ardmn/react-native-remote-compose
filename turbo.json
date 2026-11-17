@@ -1,23 +1,39 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".nvmrc", ".yarnrc.yml"],
-  "globalEnv": ["NODE_ENV"],
+  "globalDependencies": [
+    ".nvmrc",
+    ".yarnrc.yml"
+  ],
+  "globalEnv": [
+    "NODE_ENV"
+  ],
   "tasks": {
     "build:android": {
-      "env": ["ANDROID_HOME"],
+      "env": [
+        "ANDROID_HOME"
+      ],
       "inputs": [
         "package.json",
-        "react-native.config.js",
-        "nitro.json",
-        "android",
-        "!android/build",
-        "cpp",
-        "src/**",
-        "example/package.json",
-        "example/android",
-        "!example/android/.gradle",
-        "!example/android/build",
-        "!example/android/app/build"
+        "app.json",
+        "metro.config.js",
+        "index.js",
+        "*.tsx",
+        "android/**",
+        "!android/.gradle/**",
+        "!android/build/**",
+        "!android/app/build/**",
+        "!android/app/.cxx/**",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/yarn.lock",
+        "$TURBO_ROOT$/src/**",
+        "$TURBO_ROOT$/plugin/**",
+        "$TURBO_ROOT$/app.plugin.js",
+        "$TURBO_ROOT$/react-native.config.js",
+        "$TURBO_ROOT$/example-shared/**",
+        "$TURBO_ROOT$/android/**",
+        "!$TURBO_ROOT$/android/build/**",
+        "!$TURBO_ROOT$/android/.cxx/**",
+        "!$TURBO_ROOT$/android/.gradle/**"
       ],
       "outputs": []
     },
@@ -29,15 +45,22 @@
       ],
       "inputs": [
         "package.json",
-        "*.podspec",
-        "nitro.json",
-        "ios",
-        "cpp",
-        "src/**",
-        "example/package.json",
-        "example/ios",
-        "!example/ios/build",
-        "!example/ios/Pods"
+        "app.json",
+        "metro.config.js",
+        "index.js",
+        "*.tsx",
+        "ios/**",
+        "!ios/build/**",
+        "!ios/Pods/**",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/yarn.lock",
+        "$TURBO_ROOT$/src/**",
+        "$TURBO_ROOT$/plugin/**",
+        "$TURBO_ROOT$/app.plugin.js",
+        "$TURBO_ROOT$/react-native.config.js",
+        "$TURBO_ROOT$/example-shared/**",
+        "$TURBO_ROOT$/*.podspec",
+        "$TURBO_ROOT$/ios/**"
       ],
       "outputs": []
     }
