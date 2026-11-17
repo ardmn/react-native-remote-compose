@@ -19,6 +19,166 @@ the bundled CLI for servers and iOS builds.
 />
 ```
 
+## Get started
+
+Five steps from an empty React Native app to a document that reacts to your state and your taps.
+Everything below is copy-paste; the document in step 3 is public, so it works as is.
+
+### 1. Check the requirements
+
+- React Native **0.88+** with the New Architecture (the default), or Expo SDK **58+**.
+- **Android:** Kotlin Gradle plugin **2.3 or newer** in the app (step 2 shows where), minSdk 24.
+- **iOS:** 15.1+, Xcode 16+, Apple-silicon simulators and devices (rc-players ships no x86_64 slice).
+- Expo Go cannot load native code: use a [development build](https://docs.expo.dev/develop/development-builds/introduction/).
+
+### 2. Install
+
+**Bare React Native**
+
+```sh
+yarn add react-native-remote-compose        # or: npm install react-native-remote-compose
+cd ios && bundle exec pod install && cd ..
+```
+
+In `android/build.gradle`, use a Kotlin that can read rc-players (built with Kotlin 2.4; React
+Native's default 2.2 fails with `compiler version 2.2.0 can read versions up to 2.3.0`):
+
+```groovy
+buildscript {
+  ext {
+    kotlinVersion = "2.3.21"
+  }
+  dependencies {
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+  }
+}
+```
+
+In `ios/<YourApp>/Info.plist`, let animations run at the display's full rate (ProMotion):
+
+```xml
+<key>CADisableMinimumFrameDurationOnPhone</key>
+<true/>
+```
+
+**Expo**
+
+```sh
+npx expo install react-native-remote-compose
+```
+
+```json
+{
+  "expo": {
+    "plugins": ["react-native-remote-compose"]
+  }
+}
+```
+
+The config plugin does both edits above for you (it never lowers a newer Kotlin or deployment
+target). Then build and run a development build: `npx expo run:android` / `npx expo run:ios`
+(or EAS Build).
+
+Rebuild the native app after installing; a hot reload is not enough.
+
+### 3. Show a document
+
+```tsx
+import { RemoteComposeView } from 'react-native-remote-compose';
+
+const CARD =
+  'https://raw.githubusercontent.com/ardmn/react-native-remote-compose/main/example-shared/documents/rc/product_card.rc';
+
+export default function App() {
+  return <RemoteComposeView style={{ height: 240, margin: 16 }} source={{ uri: CARD }} />;
+}
+```
+
+You should see a product card with a title, a rating bar and an **Add to cart** button.
+`product_card.rc` is the demo document in this repository; its source is
+[`product_card.json`](example-shared/documents/json/product_card.json).
+
+### 4. Drive it from your state, react to its actions
+
+The card declares the named values `title` and `subtitle` (text), `rating` and `count` (numbers)
+and the color `accent`, and raises the actions `add_to_cart` (click) and `show_details` (long
+press). `onLoad` lists the names any document declares.
+
+```tsx
+import { useState } from 'react';
+import { Alert } from 'react-native';
+import { RemoteComposeView } from 'react-native-remote-compose';
+
+const CARD =
+  'https://raw.githubusercontent.com/ardmn/react-native-remote-compose/main/example-shared/documents/rc/product_card.rc';
+
+export default function App() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <RemoteComposeView
+      style={{ height: 240, margin: 16 }}
+      source={{ uri: CARD }}
+      namedValues={{
+        title: 'Flat white',                          // a string sets text
+        subtitle: 'Oat milk, extra hot',
+        rating: 0.8,                                  // a number sets a number (0…1 here)
+        count,
+        accent: { type: 'color', value: '#6750A4' },  // colors are tagged; any React Native color
+      }}
+      onAction={(event) => {
+        if (event.kind !== 'named') return;
+        if (event.name === 'add_to_cart') setCount((c) => c + 1);
+        if (event.name === 'show_details') Alert.alert('Details', 'Long press in the document');
+      }}
+      onLoad={(event) => console.log('declares', event.namedValues)}
+      onError={(error) => console.warn(error.code, error.message)}
+    />
+  );
+}
+```
+
+Tap **Add to cart**: `count` goes up in React state and the document shows it. Long-press the
+card: the alert opens. Change `title` or `accent` and the document updates in place, without
+reloading.
+
+### 5. Ship documents with the app (optional)
+
+Load documents from your server as above, or bundle them so they work offline. Download
+[`product_card.rc`](https://raw.githubusercontent.com/ardmn/react-native-remote-compose/main/example-shared/documents/rc/product_card.rc)
+next to your code, and let Metro bundle `.rc` files:
+
+```js
+// metro.config.js
+const { getDefaultConfig } = require('@react-native/metro-config'); // Expo: require('expo/metro-config')
+
+const config = getDefaultConfig(__dirname);
+config.resolver.assetExts.push('rc');
+module.exports = config;
+```
+
+```tsx
+<RemoteComposeView source={require('./product_card.rc')} />
+```
+
+Restart Metro with `--reset-cache` after changing `assetExts`.
+
+### Before you release
+
+- **Android: turn on R8** (`def enableProguardInReleaseBuilds = true` in `android/app/build.gradle`;
+  React Native's template ships it off). It cuts the library's cost from +7.2 MB to +1.3 MB
+  download (see [App size](#app-size)). No keep rules are needed.
+- **Errors are logged for you.** Every error is printed once to the console with how to fix it,
+  whether or not you pass `onError`:
+
+  ```
+  [react-native-remote-compose] load error: HTTP 404 for https://…/card.rc
+  How to fix:
+    • Check the document URL; the server has no file there.
+  ```
+
+## Platform support
+
 | | Android | iOS |
 |---|---|---|
 | Renderer | rc-players `RcComposePlayer` in a `ComposeView` | rc-players `RcComposePlayer.xcframework` (SwiftPM) |
@@ -31,71 +191,6 @@ the bundled CLI for servers and iOS builds.
 | Expo (development build) | ✅ | ✅ |
 | Expo Go | ❌ (no third-party native code) | ❌ |
 
-## Requirements
-
-- React Native **0.88+**, New Architecture (Fabric). Expo SDK **58+**.
-- **Android:** Kotlin Gradle plugin **≥ 2.3** in the app. rc-players is built with Kotlin 2.4, whose
-  metadata React Native's default Kotlin 2.2 compiler cannot read
-  (`compiler version 2.2.0 can read versions up to 2.3.0`). minSdk 24, compileSdk 37.
-- **iOS:** 15.1+, Xcode 16+ (Swift 6 toolchain). **Apple-silicon simulators and devices only** —
-  rc-players publishes no x86_64 slice.
-
-## Installation
-
-### Bare React Native
-
-```sh
-yarn add react-native-remote-compose
-cd ios && bundle exec pod install
-```
-
-`android/build.gradle` — pin a Kotlin that can read rc-players:
-
-```groovy
-buildscript {
-  ext { kotlinVersion = "2.3.21" }
-  dependencies { classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion") }
-}
-```
-
-`ios/<App>/Info.plist` — let Compose render at the display's full rate (ProMotion):
-
-```xml
-<key>CADisableMinimumFrameDurationOnPhone</key><true/>
-```
-
-The pod pulls rc-players' XCFramework through React Native's own
-[`spm_dependency`](https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/cocoapods/spm.rb)
-(rc-players ships only via Swift Package Manager); nothing else to configure.
-
-### Expo
-
-```sh
-npx expo install react-native-remote-compose
-```
-
-```json
-{ "expo": { "plugins": ["react-native-remote-compose"] } }
-```
-
-The config plugin sets `android.kotlinVersion` (≥ 2.3; never lowers a newer one), raises an explicit
-iOS deployment target below 15.1 (never lowers Expo's default) and adds the ProMotion plist key.
-Then build a [development build](https://docs.expo.dev/develop/development-builds/introduction/):
-`npx expo run:android` / `npx expo run:ios` (or EAS Build). Expo Go cannot load it.
-
-### Release builds
-
-- Android: turn on R8 for release (`def enableProguardInReleaseBuilds = true` in
-  `android/app/build.gradle`); it cuts the library's cost from +7.4 MB to +1.5 MB download
-  (see [App size](#app-size)). No keep rules are needed.
-
-### Bundling `.rc` files
-
-```js
-// metro.config.js
-config.resolver.assetExts = [...config.resolver.assetExts, 'rc'];
-```
-
 ## API
 
 ### `<RemoteComposeView>`
@@ -104,11 +199,12 @@ config.resolver.assetExts = [...config.resolver.assetExts, 'rc'];
 |---|---|---|
 | `source` | `require(...)` · `{ uri, headers? }` · `{ base64 }` · `{ json }` | Loaded natively, off the main thread. |
 | `namedValues` | `Record<string, number \| string \| boolean \| {type, value}>` | Plain values infer float/string/boolean; use `{ type: 'color' \| 'int', value }` otherwise. Bare names address the document's `USER:` domain. |
-| `theme` | `'system' \| 'light' \| 'dark'` | Picks the light/dark half of themed colors. |
+| `theme` | `'system' \| 'light' \| 'dark'` | Picks the light/dark half of themed colors. Default `system`. |
 | `lenient` | `boolean` | Draw nothing for operations the player knows but cannot draw, instead of refusing the document. |
-| `onAction` | `(e) => void` | `{kind:'named', name, value, valueType}` · `{kind:'host', actionId}` · `{kind:'metadata', actionId, metadata}` |
+| `onAction` | `(e) => void` | `{kind:'named', name, valueType, value}` (value typed by `valueType`: `none` → `null`, `float`/`int` → number, `string` → string, `floatList` → number[]) · `{kind:'host', actionId}` · `{kind:'metadata', actionId, metadata}` |
 | `onLoad` | `(e) => void` | `{ byteLength, loadMs, decodeMs, namedValues }` — the names the document lets you set. |
-| `onError` | `(e) => void` | `{ code: 'load' \| 'document' \| 'unsupported' \| 'props', message }` |
+| `onError` | `(e) => void` | `{ code, message }`, see [Errors](#errors). |
+| `ref` | `Ref` | The native view, for `measure` and friends. |
 
 ### Functions
 
@@ -118,17 +214,17 @@ config.resolver.assetExts = [...config.resolver.assetExts, 'rc'];
 
 ### Errors
 
-Every error — invalid props, a failed load, a document the player refuses — is logged once to the
-console **with what to do about it**, whether or not you pass `onError`:
+`onError` receives `{ code, message }`:
 
-```
-[react-native-remote-compose] load error: HTTP 404 for https://…/card.rc
-How to fix:
-  • Check the document URL; the server has no file there.
-```
+| `code` | Meaning |
+|---|---|
+| `props` | A prop is invalid (reported from JS, with the prop's name). An invalid `source` shows no document; an invalid named value is not sent, the valid ones still are. |
+| `load` | The bytes could not be obtained: network, file, base64, JSON conversion. |
+| `document` | The player refused the document, or a named value's type does not match the declared one. |
+| `unsupported` | Not available on this platform: `{ json }` on iOS, or a platform without a player (web). |
 
-Importing the library never crashes the app; a missing native module is reported when first used,
-with rebuild instructions.
+Each one is also logged once to the console with fix suggestions. Importing the library never
+crashes the app; a missing native module is reported when first used, with rebuild instructions.
 
 ## Authoring documents
 
@@ -184,20 +280,25 @@ document on screen, so that row does not isolate the documents' cost.
 
 ## App size
 
-Measured with `yarn measure:size` (`scripts/measure-size.ts`) on release builds of the bare demo, built with and
-without the library's native part (same JS, so the difference is the library):
+Measured with `yarn measure:size` (`scripts/measure-size.ts`) on release builds of the bare demo,
+built with and without the library's native part (same JS, so the difference is the library):
 
-| | App without → with the library: download | install | **Library adds** |
+| | App without → with the library: download | on device | **Library adds** |
 |---|---|---|---|
-| **Android** arm64, R8 on | 15.81 → 17.32 MB | 16.98 → 19.79 MB | **+1.5 MB download / +2.8 MB install** |
-| Android arm64, R8 off | 18.98 → 26.37 MB | 26.50 → 46.81 MB | +7.4 MB / +20.3 MB |
-| **iOS** arm64 | 4.25 → 17.42 MB | 11.23 → 49.25 MB | **+13.2 MB download / +38.0 MB install** |
+| **Android** arm64, R8 on | 6.39 → 7.72 MB | 16.71 → 19.37 MB | **+1.3 MB download / +2.7 MB on device** |
+| Android arm64, R8 off | 9.57 → 16.77 MB | 26.23 → 46.42 MB | +7.2 MB / +20.2 MB |
+| **iOS** arm64 | 5.94 → 19.60 MB | 21.12 → 59.17 MB | **+13.7 MB download / +38.1 MB on device** |
 
-*Download* is the compressed per-device artifact (the arm64 APK Play serves; a `zip -9` of the
-stripped `.app`). *Install* is the unpacked size on the device. iOS binaries are stripped as an App
-Store archive strips them. The iOS download is a **lower bound**: the App Store encrypts the
-executable and encrypted bytes do not compress, so the real figure (App Store Connect's App Thinning
-report) can be higher.
+How each number is obtained:
+
+- **Android** is sized as Google Play serves it. The release App Bundle goes through Google's
+  [bundletool](https://developer.android.com/tools/bundletool) for one arm64 phone:
+  `get-size total` gives the *download*, and the split APKs bundletool would install for that phone
+  give the size *on device*. That figure is the APKs only; Android adds compiled-code caches on top.
+- **iOS** is a Release archive for devices (`xcodebuild archive`), whose binaries Xcode strips as
+  for the App Store. *On device* is the `.app`'s bytes; *download* is a `zip -9` of it. That is a
+  **lower bound**: the App Store encrypts the executable, and encrypted bytes do not compress, so
+  the real figure (App Store Connect's App Thinning report) can be higher.
 
 **Why iOS costs more.** Both platforms run the same Compose Multiplatform renderer, but:
 
@@ -211,7 +312,7 @@ report) can be higher.
   a 2D graphics engine remain.
 
 **Enable R8 on Android** (`minifyEnabled true` in release; React Native's template ships it off):
-without it the same library costs 5× more download and 7× more install. The release build with R8
+without it the same library costs 5× more download and 7× more space on the device. The release build with R8
 was run on a device with no extra keep rules (no crashes, documents render).
 
 ## How it works
