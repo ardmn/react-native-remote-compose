@@ -1,11 +1,8 @@
 {
   "extends": "./tsconfig",
-  "exclude": [
-    "example",
-    "example-expo",
-    "example-shared",
-    "lib",
-    "tools",
-    "plugin"
-  ]
+  "compilerOptions": {
+    "types": []
+  },
+  "include": ["src"],
+  "exclude": ["src/**/__tests__"]
 }
