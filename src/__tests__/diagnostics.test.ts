@@ -26,10 +26,17 @@ it.each([
   ['load', 'HTTP 401 for https://x/a.rc', /headers/],
   ['load', 'No bundled asset named src_card', /assetExts/],
   [
+    // iOS's message, word for word (ios/RemoteComposeJson.swift).
     'unsupported',
-    'JSON documents are converted on Android only.',
+    'JSON to .rc conversion is available on Android only. Convert on the server or at build time (tools/remote-compose-json) and pass the .rc as uri or base64.',
     /remote-compose-json/,
   ],
+  // Android's base64 decoder and iOS's loader word an invalid base64 source differently.
+  ['load', 'bad base-64', /RFC 4648/],
+  ['load', 'Invalid base64 document', /RFC 4648/],
+  ['load', 'Unsupported uri scheme: ftp://x/a.rc', /http\(s\)/],
+  ['load', 'Invalid document uri: ::', /http\(s\)/],
+  ['load', 'Document larger than 16777216 bytes', /16 MB/],
   ['load', 'Parsing error at ContextPath: root -> children[3]', /ContextPath/],
   [
     'document',
@@ -43,6 +50,15 @@ it.each([
     expect(fixesFor({ code, message }).join('\n')).toMatch(expected);
   }
 );
+
+it('never gives a hint meant for another kind of failure', () => {
+  // "timed out" is a network hint for load errors; a player message that says it is not one.
+  const fixes = fixesFor({
+    code: 'document',
+    message: 'animation timed out after 3 frames',
+  });
+  expect(fixes.join('\n')).not.toMatch(/connectivity/);
+});
 
 it('formats the code, the original message and the fixes', () => {
   const text = formatError({

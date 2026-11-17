@@ -3,9 +3,11 @@
  * what reaches the native view for each kind of source and named value, how native events come
  * back to the app, and that every error is both logged with fix suggestions and passed to onError.
  */
+import { useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Image, PlatformColor } from 'react-native';
 import { RemoteComposeView } from '../RemoteComposeView';
+import type { RemoteComposeNamedValue, RemoteComposeSource } from '../types';
 
 type HostProps = Record<string, unknown>;
 
@@ -69,7 +71,7 @@ describe('source', () => {
             height: 0,
             scale: 1,
           }
-        : (null as never)
+        : undefined
     );
     await render(<RemoteComposeView testID="player" source={id} />);
     expect(nativeProps().documentUri).toBe(
@@ -138,6 +140,26 @@ describe('namedValues', () => {
   });
 });
 
+describe('props reaching the player', () => {
+  it('passes theme and lenient through, and leaves them to the native default when absent', async () => {
+    const { rerender } = await render(
+      <RemoteComposeView testID="player" source={{ base64: 'AA==' }} />
+    );
+    expect(nativeProps().theme).toBeUndefined();
+    expect(nativeProps().lenient).toBeUndefined();
+    await rerender(
+      <RemoteComposeView
+        testID="player"
+        source={{ base64: 'AA==' }}
+        theme="dark"
+        lenient
+      />
+    );
+    expect(nativeProps().theme).toBe('dark');
+    expect(nativeProps().lenient).toBe(true);
+  });
+});
+
 describe('events from the document', () => {
   it('delivers a named action with its typed value', async () => {
     const onAction = jest.fn();
@@ -166,6 +188,53 @@ describe('events from the document', () => {
       value: 1.5,
       valueType: 'float',
     });
+  });
+
+  it.each([
+    [
+      { kind: 'metadata', actionId: 3, metadata: 'open', valueType: 'none' },
+      { kind: 'metadata', actionId: 3, metadata: 'open' },
+    ],
+    [
+      { kind: 'named', name: 'tap', valueType: 'none' },
+      { kind: 'named', name: 'tap', valueType: 'none', value: null },
+    ],
+    [
+      { kind: 'named', name: 'pick', valueType: 'string', text: 'Mocha' },
+      { kind: 'named', name: 'pick', valueType: 'string', value: 'Mocha' },
+    ],
+    [
+      {
+        kind: 'named',
+        name: 'path',
+        valueType: 'floatList',
+        numbers: [1, 2.5],
+      },
+      { kind: 'named', name: 'path', valueType: 'floatList', value: [1, 2.5] },
+    ],
+  ])('delivers %o as %o', async (fields, expected) => {
+    const onAction = jest.fn();
+    await render(
+      <RemoteComposeView
+        testID="player"
+        source={{ base64: 'AA==' }}
+        onAction={onAction}
+      />
+    );
+    const empty = {
+      kind: 'named',
+      actionId: 0,
+      name: '',
+      metadata: '',
+      valueType: 'none',
+      text: '',
+      number: 0,
+      numbers: [],
+    };
+    await fireEvent(screen.getByTestId('player'), 'remoteAction', {
+      nativeEvent: { ...empty, ...fields },
+    });
+    expect(onAction).toHaveBeenCalledWith(expected);
   });
 
   it('delivers numeric host actions with their id', async () => {
@@ -286,15 +355,142 @@ describe('errors', () => {
     );
   });
 
-  it('reports an invalid prop once, not on every re-render', async () => {
+  it('reports an invalid prop once, however the app writes its props', async () => {
+    // Inline literals and a handler that sets state: how apps actually write it.
+    function App() {
+      const [errors, setErrors] = useState(0);
+      return (
+        <RemoteComposeView
+          testID="player"
+          source={{ base64: 'AA==' }}
+          namedValues={{
+            accent: { type: 'color', value: PlatformColor('systemBlue') },
+          }}
+          // Capped, so a regression ends the loop and fails the assertion instead of hanging.
+          onError={() => setErrors((n) => Math.min(n + 1, 5))}
+          accessibilityHint={String(errors)}
+        />
+      );
+    }
+    const { rerender } = await render(<App />);
+    await rerender(<App />);
+    await rerender(<App />);
+    expect(screen.getByTestId('player').props.accessibilityHint).toBe('1');
+  });
+
+  it('reports a source that is not one of the documented shapes', async () => {
+    for (const source of [
+      null,
+      'https://x/a.rc',
+      { uri: '' },
+      { base64: '' },
+    ]) {
+      const onError = jest.fn();
+      await render(
+        <RemoteComposeView
+          testID="player"
+          source={source as unknown as RemoteComposeSource}
+          onError={onError}
+        />
+      );
+      expect(onError).toHaveBeenCalledWith({
+        code: 'props',
+        message: expect.stringMatching(/source/),
+      });
+      expect(
+        nativeProps().documentUri ?? nativeProps().documentBase64
+      ).toBeUndefined();
+    }
+  });
+
+  it('reports a source that names more than one document', async () => {
     const onError = jest.fn();
-    const source = { nope: true } as never;
-    const { rerender } = await render(
-      <RemoteComposeView testID="player" source={source} onError={onError} />
+    const both = { uri: 'https://x/a.rc', base64: 'AA==' };
+    await render(
+      <RemoteComposeView
+        testID="player"
+        source={both as unknown as RemoteComposeSource}
+        onError={onError}
+      />
     );
-    await rerender(
-      <RemoteComposeView testID="player" source={source} onError={onError} />
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'props' })
     );
-    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a named value of an unknown type instead of sending it', async () => {
+    const onError = jest.fn();
+    const values = { rating: { type: 'double', value: 1 } };
+    await render(
+      <RemoteComposeView
+        testID="player"
+        source={{ base64: 'AA==' }}
+        namedValues={
+          values as unknown as Record<string, RemoteComposeNamedValue>
+        }
+        onError={onError}
+      />
+    );
+    expect(onError).toHaveBeenCalledWith({
+      code: 'props',
+      message: expect.stringContaining('rating'),
+    });
+    expect(nativeProps().namedValues).toEqual([]);
+  });
+
+  it('still sends the valid named values when one is invalid', async () => {
+    const onError = jest.fn();
+    await render(
+      <RemoteComposeView
+        testID="player"
+        source={{ base64: 'AA==' }}
+        namedValues={{ title: 'Hi', rating: Number.NaN }}
+        onError={onError}
+      />
+    );
+    expect(nativeProps().namedValues).toEqual([
+      expect.objectContaining({ name: 'title', valueType: 'string' }),
+    ]);
+    expect(onError).toHaveBeenCalledWith({
+      code: 'props',
+      message: expect.stringContaining('namedValues.rating'),
+    });
+  });
+
+  it.each([
+    [{ count: { type: 'int', value: 2 ** 31 } }, /count.*32 bits/],
+    [{ rating: Number.POSITIVE_INFINITY }, /rating.*finite/],
+    [{ accent: { type: 'color', value: 'notacolor' } }, /accent.*not a color/],
+    [{ title: { type: 'string', value: 5 } }, /title.*string/],
+    [{ missing: undefined }, /missing.*number, string, boolean/],
+  ])('reports %o with a message naming the value', async (values, message) => {
+    const onError = jest.fn();
+    await render(
+      <RemoteComposeView
+        testID="player"
+        source={{ base64: 'AA==' }}
+        namedValues={
+          values as unknown as Record<string, RemoteComposeNamedValue>
+        }
+        onError={onError}
+      />
+    );
+    expect(onError).toHaveBeenCalledWith({
+      code: 'props',
+      message: expect.stringMatching(message),
+    });
+    expect(nativeProps().namedValues).toEqual([]);
+  });
+
+  it('reports a bundled asset Metro cannot resolve, with how to bundle it', async () => {
+    jest.spyOn(Image, 'resolveAssetSource').mockReturnValue(undefined);
+    const onError = jest.fn();
+    await render(
+      <RemoteComposeView testID="player" source={7} onError={onError} />
+    );
+    expect(onError).toHaveBeenCalledWith({
+      code: 'props',
+      message: expect.stringContaining('assetExts'),
+    });
   });
 });

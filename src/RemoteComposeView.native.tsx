@@ -1,30 +1,29 @@
-import { useCallback, useEffect, useMemo } from 'react';
-import {
-  fromNativeAction,
-  toNativeNamedValues,
-  toNativeSource,
-} from './convert';
-import { reportError } from './diagnostics';
+import { useCallback, useEffect, useEffectEvent, useMemo } from 'react';
+import type { NativeSyntheticEvent } from 'react-native';
 import NativeRemoteComposeView, {
   type NativeActionEvent,
   type NativeErrorEvent,
   type NativeLoadEvent,
-  type NativeProps,
 } from './RemoteComposeViewNativeComponent';
-import type {
-  NativeEvent,
-  RemoteComposeErrorEvent,
-  RemoteComposeViewProps,
-} from './types';
+import {
+  fromNativeAction,
+  toNativeNamedValues,
+  toNativeSource,
+  type NativeSourceProps,
+} from './convert';
+import { reportError } from './diagnostics';
+import type { RemoteComposeErrorEvent, RemoteComposeViewProps } from './types';
 
-type Converted<T> =
-  { value: T; error?: undefined } | { value?: undefined; error: Error };
-
-function attempt<T>(fn: () => T): Converted<T> {
+/** The native source props for `source`, or the message explaining why it is invalid. */
+function convertSource(
+  source: RemoteComposeViewProps['source']
+):
+  | { props: NativeSourceProps; error?: undefined }
+  | { props: {}; error: string } {
   try {
-    return { value: fn() };
+    return { props: toNativeSource(source) };
   } catch (e) {
-    return { error: e instanceof Error ? e : new Error(String(e)) };
+    return { props: {}, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -36,21 +35,19 @@ function attempt<T>(fn: () => T): Converted<T> {
  * console with fix suggestions and passed to `onError`.
  */
 export function RemoteComposeView({
+  ref,
   source,
   namedValues,
-  theme = 'system',
-  lenient = false,
+  theme,
+  lenient,
   onAction,
   onError,
   onLoad,
   ...viewProps
 }: RemoteComposeViewProps) {
-  const nativeSource = useMemo(
-    () => attempt(() => toNativeSource(source)),
-    [source]
-  );
+  const nativeSource = useMemo(() => convertSource(source), [source]);
   const nativeValues = useMemo(
-    () => attempt(() => toNativeNamedValues(namedValues)),
+    () => toNativeNamedValues(namedValues),
     [namedValues]
   );
 
@@ -62,43 +59,43 @@ export function RemoteComposeView({
     [onError]
   );
 
-  // Invalid props are reported once per change, not on every render.
-  const propsError = nativeSource.error ?? nativeValues.error;
+  // Keyed on the message, not on object identity: inline props and an onError that re-renders the
+  // app must not report the same problem again.
+  const propsError = [nativeSource.error, ...nativeValues.errors]
+    .filter((message) => message !== undefined)
+    .join('\n');
+  const reportPropsError = useEffectEvent((message: string) =>
+    fail({ code: 'props', message })
+  );
   useEffect(() => {
-    if (propsError) fail({ code: 'props', message: propsError.message });
-  }, [propsError, fail]);
+    if (propsError) reportPropsError(propsError);
+  }, [propsError]);
 
   const handleAction = useCallback(
-    (event: NativeEvent<NativeActionEvent>) =>
+    (event: NativeSyntheticEvent<NativeActionEvent>) =>
       onAction?.(fromNativeAction(event.nativeEvent)),
     [onAction]
   );
   const handleError = useCallback(
-    (event: NativeEvent<NativeErrorEvent>) =>
+    (event: NativeSyntheticEvent<NativeErrorEvent>) =>
       fail({
-        code: event.nativeEvent.code as RemoteComposeErrorEvent['code'],
+        code: event.nativeEvent.code,
         message: event.nativeEvent.message,
       }),
     [fail]
   );
   const handleLoad = useCallback(
-    (event: NativeEvent<NativeLoadEvent>) =>
-      onLoad?.({
-        byteLength: event.nativeEvent.byteLength,
-        loadMs: event.nativeEvent.loadMs,
-        decodeMs: event.nativeEvent.decodeMs,
-        namedValues: event.nativeEvent.namedValues,
-      }),
+    (event: NativeSyntheticEvent<NativeLoadEvent>) =>
+      onLoad?.(event.nativeEvent),
     [onLoad]
   );
-
-  const documentProps: Partial<NativeProps> = nativeSource.value ?? {};
 
   return (
     <NativeRemoteComposeView
       {...viewProps}
-      {...documentProps}
-      namedValues={nativeValues.value ?? []}
+      {...nativeSource.props}
+      ref={ref}
+      namedValues={nativeValues.values}
       theme={theme}
       lenient={lenient}
       onRemoteAction={onAction ? handleAction : undefined}
