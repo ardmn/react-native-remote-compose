@@ -16,4 +16,7 @@ const config = withMetroConfig(getDefaultConfig(__dirname), {
   conditions: ['react-native-remote-compose-source'],
 });
 
+// Remote Compose documents are bundled as assets: `require('./screen.rc')`.
+config.resolver.assetExts = [...config.resolver.assetExts, 'rc'];
+
 module.exports = config;

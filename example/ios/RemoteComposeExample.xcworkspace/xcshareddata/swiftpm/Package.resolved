@@ -1,0 +1,15 @@
+{
+  "originHash" : "0b099e09c8c0c1bc6a08df8bc0d7f9be0e12fd13c4c6f25a6153b5aa75f243c4",
+  "pins" : [
+    {
+      "identity" : "rc-players",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/yschimke/rc-players.git",
+      "state" : {
+        "revision" : "1fd500630ee40e2b9252a0f32285397d4a7355e1",
+        "version" : "3.8.0"
+      }
+    }
+  ],
+  "version" : 3
+}

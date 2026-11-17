@@ -1,6 +1,22 @@
+buildscript {
+  // The Compose compiler plugin must match the Kotlin Gradle plugin the app resolves.
+  def kotlinVersion = rootProject.ext.has("kotlinVersion") ? rootProject.ext.get("kotlinVersion") : "2.3.21"
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath "org.jetbrains.kotlin:compose-compiler-gradle-plugin:${kotlinVersion}"
+  }
+}
+
 ext.RemoteCompose = [
   minSdkVersion: 24,
-  compileSdkVersion: 36
+  compileSdkVersion: 37,
+  rcPlayersVersion: "3.8.0",
+  // The Compose Multiplatform release rc-player-compose is built against (its POM pins it).
+  composeMultiplatformVersion: "1.12.2",
+  androidxRemoteVersion: "1.0.0-alpha23",
 ]
 
 ext.getExtOrDefault = { prop ->
@@ -11,14 +27,13 @@ ext.getExtOrDefault = { prop ->
   return RemoteCompose[prop]
 }
 
-
 apply plugin: "com.android.library"
 
 if (project.extensions.findByName("kotlin") == null) {
   apply plugin: "kotlin-android"
 }
 
-
+apply plugin: "org.jetbrains.kotlin.plugin.compose"
 apply plugin: "com.facebook.react"
 
 android {
@@ -29,8 +44,23 @@ android {
   defaultConfig {
     minSdkVersion getExtOrDefault("minSdkVersion")
   }
+
+  buildFeatures {
+    compose true
+  }
+
+  lint {
+    abortOnError true
+    warningsAsErrors false
+  }
 }
 
 dependencies {
   implementation "com.facebook.react:react-android"
+
+  // The player: rc-players' Compose Multiplatform renderer (the same one the iOS side ships).
+  implementation "ee.schimke.composeai:rc-player-compose:${getExtOrDefault('rcPlayersVersion')}"
+  implementation "org.jetbrains.compose.foundation:foundation:${getExtOrDefault('composeMultiplatformVersion')}"
+  // AndroidX's authoring-JSON parser (RemoteComposeJsonParser), for `{ json }` sources.
+  implementation "androidx.compose.remote:remote-creation-core:${getExtOrDefault('androidxRemoteVersion')}"
 }

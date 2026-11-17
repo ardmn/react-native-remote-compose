@@ -1,11 +1,7 @@
-import type { ColorValue, ViewProps } from 'react-native';
+import type { RemoteComposeViewProps } from './types';
 
-type Props = ViewProps & {
-  color?: ColorValue;
-};
-
-export function RemoteComposeView(_props: Props): never {
+export function RemoteComposeView(_props: RemoteComposeViewProps): never {
   throw new Error(
-    "'react-native-remote-compose' is only supported on native platforms."
+    "'react-native-remote-compose' is only supported on Android and iOS."
   );
 }

@@ -1,0 +1,207 @@
+{
+  "header": {
+    "width": 360,
+    "height": 220,
+    "contentDescription": "Product card"
+  },
+  "root": {
+    "global": [
+      {
+        "resources": {
+          "colors": [
+            {
+              "accent": "#FF6750A4"
+            },
+            {
+              "onAccent": "#FFFFFFFF"
+            }
+          ],
+          "variables": [
+            {
+              "count": {
+                "value": 0,
+                "export": true
+              }
+            },
+            {
+              "rating": {
+                "value": 0.8,
+                "export": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "variable": {
+          "name": "title",
+          "vtype": "string",
+          "value": "Flat white",
+          "export": true
+        }
+      },
+      {
+        "variable": {
+          "name": "subtitle",
+          "vtype": "string",
+          "value": "Double ristretto, steamed milk",
+          "export": true
+        }
+      },
+      {
+        "column": {
+          "modifiers": [
+            "fillMaxSize",
+            {
+              "background": "#FFF7F2FA"
+            },
+            {
+              "padding": 16
+            }
+          ],
+          "children": [
+            {
+              "text": {
+                "value": "@title",
+                "fontSize": 22,
+                "fontWeight": 700,
+                "color": "#FF1D1B20"
+              }
+            },
+            {
+              "text": {
+                "value": "@subtitle",
+                "fontSize": 14,
+                "color": "#FF49454F",
+                "maxLines": 1,
+                "overflow": "ellipsis"
+              }
+            },
+            {
+              "spacer": {
+                "modifiers": [
+                  {
+                    "height": 12
+                  }
+                ]
+              }
+            },
+            {
+              "box": {
+                "modifiers": [
+                  "fillMaxWidth",
+                  {
+                    "height": 8
+                  },
+                  {
+                    "background": "#FFE8DEF8"
+                  }
+                ],
+                "children": [
+                  {
+                    "box": {
+                      "modifiers": [
+                        {
+                          "width": "@rating * 328"
+                        },
+                        {
+                          "height": 8
+                        },
+                        {
+                          "background": "$colors.accent"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "spacer": {
+                "modifiers": [
+                  {
+                    "height": 16
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "modifiers": [
+                  "fillMaxWidth"
+                ],
+                "verticalAlignment": "center",
+                "children": [
+                  {
+                    "box": {
+                      "modifiers": [
+                        {
+                          "size": [
+                            140,
+                            44
+                          ]
+                        },
+                        {
+                          "clip": {
+                            "roundRect": 22
+                          }
+                        },
+                        {
+                          "background": "$colors.accent"
+                        },
+                        {
+                          "onClick": {
+                            "type": "hostAction",
+                            "name": "add_to_cart"
+                          }
+                        }
+                      ],
+                      "horizontalAlignment": "center",
+                      "verticalAlignment": "center",
+                      "children": [
+                        {
+                          "text": {
+                            "value": "Add to cart",
+                            "fontSize": 16,
+                            "color": "$colors.onAccent"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "spacer": {
+                      "modifiers": [
+                        {
+                          "width": 16
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "text": {
+                      "textFromFloat": {
+                        "value": "@count",
+                        "before": 3,
+                        "decimal": 0
+                      },
+                      "fontSize": 18,
+                      "color": "#FF1D1B20"
+                    }
+                  },
+                  {
+                    "text": {
+                      "value": " in cart",
+                      "fontSize": 18,
+                      "color": "#FF1D1B20"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "header": { "width": 360, "height": 240, "contentDescription": "Animated pulse" },
+  "root": { "global": [
+    { "resources": {
+      "colors": [ { "accent": "#FF00897B" } ],
+      "variables": [ { "speed": { "value": 2, "export": true } } ]
+    } },
+    { "variable": { "name": "label", "vtype": "string", "value": "Tap the circle", "export": true } },
+    { "column": {
+      "modifiers": [ "fillMaxSize", { "background": "#FF101418" }, { "padding": 12 } ],
+      "horizontalAlignment": "center",
+      "children": [
+        { "text": { "value": "@label", "fontSize": 16, "color": "#FFFFFFFF" } },
+        { "canvas": {
+          "modifiers": [ "fillMaxWidth", { "height": 180 },
+            { "onClick": { "type": "hostAction", "name": "pulse_tapped" } } ],
+          "commands": [
+            { "paint": { "color": "$colors.accent", "style": "fill" } },
+            { "drawCircle": { "cx": "width / 2", "cy": "height / 2", "radius": "50 + sin(time * @speed) * 30" } }
+          ]
+        } }
+      ]
+    } }
+  ] }
+}
