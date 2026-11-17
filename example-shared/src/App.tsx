@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Linking,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -69,12 +71,20 @@ export function DemoApp({ title }: { title: string }) {
             ))}
           </View>
         </View>
-        <ScrollView contentContainerStyle={styles.content}>
-          {tab === 'host' && <HostValuesScreen />}
-          {tab === 'json' && <JsonScreen />}
-          {tab === 'network' && <NetworkScreen />}
-          {tab === 'perf' && <PerformanceScreen autorun={autorun} />}
-        </ScrollView>
+        <KeyboardAvoidingView
+          style={styles.fill}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+          >
+            {tab === 'host' && <HostValuesScreen />}
+            {tab === 'json' && <JsonScreen />}
+            {tab === 'network' && <NetworkScreen />}
+            {tab === 'perf' && <PerformanceScreen autorun={autorun} />}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -86,4 +96,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   content: { padding: 16 },
+  fill: { flex: 1 },
 });

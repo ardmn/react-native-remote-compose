@@ -11,6 +11,8 @@ dependencies {
     implementation("org.json:json:20260814")
     // rc-players' reader: validates what the parser wrote and prints it (--dump).
     implementation("ee.schimke.composeai:rc-player-edit:3.8.0")
+    // rc-players' renderer support check: the same gate the Android/iOS views run before playing.
+    implementation("ee.schimke.composeai:rc-player-compose:3.8.0")
     testImplementation(kotlin("test"))
 }
 

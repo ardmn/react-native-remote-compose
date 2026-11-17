@@ -37,6 +37,12 @@
                 "value": 0,
                 "export": false
               }
+            },
+            {
+              "releasedAt": {
+                "value": -10,
+                "export": false
+              }
             }
           ]
         }
@@ -74,7 +80,12 @@
                 "value": "@title",
                 "fontSize": 22,
                 "fontWeight": 700,
-                "color": "#FF1D1B20"
+                "color": "#FF1D1B20",
+                "modifiers": [
+                  {
+                    "animationSpec": 0
+                  }
+                ]
               }
             },
             {
@@ -83,7 +94,12 @@
                 "fontSize": 14,
                 "color": "#FF49454F",
                 "maxLines": 1,
-                "overflow": "ellipsis"
+                "overflow": "ellipsis",
+                "modifiers": [
+                  {
+                    "animationSpec": 0
+                  }
+                ]
               }
             },
             {
@@ -152,18 +168,9 @@
                         },
                         {
                           "graphicsLayer": {
-                            "scaleX": {
-                              "value": "1 - 0.05 * @pressed",
-                              "anim": 0.12
-                            },
-                            "scaleY": {
-                              "value": "1 - 0.05 * @pressed",
-                              "anim": 0.12
-                            },
-                            "alpha": {
-                              "value": "1 - 0.18 * @pressed",
-                              "anim": 0.12
-                            }
+                            "scaleX": "1 - 0.05 * max(@pressed, clamp(1 - (time - @releasedAt) / 0.22, 0, 1))",
+                            "scaleY": "1 - 0.05 * max(@pressed, clamp(1 - (time - @releasedAt) / 0.22, 0, 1))",
+                            "alpha": "1 - 0.2 * max(@pressed, clamp(1 - (time - @releasedAt) / 0.22, 0, 1))"
                           }
                         },
                         {
@@ -182,18 +189,32 @@
                           }
                         },
                         {
-                          "onTouchUp": {
-                            "type": "valueFloatChange",
-                            "target": "@pressed",
-                            "value": 0
-                          }
+                          "onTouchUp": [
+                            {
+                              "type": "valueFloatChange",
+                              "target": "@pressed",
+                              "value": 0
+                            },
+                            {
+                              "type": "valueFloatExpressionChange",
+                              "target": "@releasedAt",
+                              "value": "time + 0"
+                            }
+                          ]
                         },
                         {
-                          "onTouchCancel": {
-                            "type": "valueFloatChange",
-                            "target": "@pressed",
-                            "value": 0
-                          }
+                          "onTouchCancel": [
+                            {
+                              "type": "valueFloatChange",
+                              "target": "@pressed",
+                              "value": 0
+                            },
+                            {
+                              "type": "valueFloatExpressionChange",
+                              "target": "@releasedAt",
+                              "value": "time + 0"
+                            }
+                          ]
                         },
                         {
                           "onClick": {
@@ -241,14 +262,24 @@
                         "decimal": 0
                       },
                       "fontSize": 18,
-                      "color": "#FF1D1B20"
+                      "color": "#FF1D1B20",
+                      "modifiers": [
+                        {
+                          "animationSpec": 0
+                        }
+                      ]
                     }
                   },
                   {
                     "text": {
                       "value": " in cart",
                       "fontSize": 18,
-                      "color": "#FF1D1B20"
+                      "color": "#FF1D1B20",
+                      "modifiers": [
+                        {
+                          "animationSpec": 0
+                        }
+                      ]
                     }
                   }
                 ]

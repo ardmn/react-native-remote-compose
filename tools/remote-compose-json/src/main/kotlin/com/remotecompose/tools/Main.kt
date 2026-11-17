@@ -1,6 +1,7 @@
 package com.remotecompose.tools
 
 import androidx.compose.remote.creation.json.RemoteComposeJsonParser
+import ee.schimke.composeai.rcplayer.compose.composeSupportReport
 import ee.schimke.composeai.rcplayer.edit.toStructuralText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -52,7 +53,10 @@ fun convert(json: String): ByteArray {
     val buffer = RemoteComposeJsonParser.parseToByteBuffer(json)
     val bytes = ByteArray(buffer.remaining()).also { buffer.get(it) }
     // Throws if rc-players cannot read what AndroidX wrote.
-    return RcDocumentCodec.encode(RcDocumentCodec.decode(bytes).withUserDomainNames())
+    val document = RcDocumentCodec.decode(bytes).withUserDomainNames()
+    // Throws if rc-players' renderer would refuse it on a device (undeclared ids, unknown operations).
+    document.composeSupportReport().requireFullyRenderable()
+    return RcDocumentCodec.encode(document)
 }
 
 /**

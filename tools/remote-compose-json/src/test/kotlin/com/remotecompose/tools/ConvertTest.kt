@@ -77,4 +77,17 @@ class ConvertTest {
             }
         }
     }
+
+    @Test
+    fun `a document the player would refuse fails conversion instead of failing on a device`() {
+        // A value change whose expression is the bare system clock: AndroidX writes it,
+        // rc-players refuses to play it ("Root expression id 1 is not declared").
+        val json = """
+            {"root":{"global":[
+              {"resources":{"variables":[{"t":{"value":0}}]}},
+              {"box":{"modifiers":[{"onTouchUp":{"type":"valueFloatExpressionChange","target":"@t","value":"time"}}]}}
+            ]}}
+        """.trimIndent()
+        assertFailsWith<Exception> { convert(json) }
+    }
 }
