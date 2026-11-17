@@ -25,6 +25,7 @@
     "!ios/build",
     "!android/build",
     "!android/src/test",
+    "!ios/Tests",
     "!android/gradle",
     "!android/gradlew",
     "!android/gradlew.bat",
@@ -49,8 +50,17 @@
   },
   "keywords": [
     "react-native",
+    "expo",
+    "android",
     "ios",
-    "android"
+    "remote-compose",
+    "compose",
+    "jetpack-compose",
+    "compose-multiplatform",
+    "rc-players",
+    "server-driven-ui",
+    "fabric",
+    "new-architecture"
   ],
   "repository": {
     "type": "git",
