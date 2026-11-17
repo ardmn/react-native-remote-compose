@@ -1,0 +1,28 @@
+# Update PRs for every ecosystem in the repo. The cooldown matches .yarnrc.yml's npmMinimalAgeGate:
+# a release is proposed only after it has been public for a week.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    versioning-strategy: increase
+    groups:
+      react-native:
+        patterns: ["react-native", "@react-native/*", "@react-native-community/*", "react", "@types/react"]
+      expo:
+        patterns: ["expo", "expo-*", "@expo/*"]
+      tooling:
+        patterns: ["*"]
+  - package-ecosystem: gradle
+    directory: /android
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+  - package-ecosystem: gradle
+    directory: /tools/remote-compose-json
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }

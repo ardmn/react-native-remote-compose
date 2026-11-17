@@ -1,37 +1,226 @@
 # react-native-remote-compose
 
-Play Remote Compose (.rc) documents in React Native on Android and iOS, with host actions and named values
+Play [Remote Compose](https://developer.android.com/jetpack/androidx/releases/compose-remote)
+documents (`.rc`) in React Native on **Android and iOS**, drive them from JS with **named values**
+(text, numbers, colors) and receive their **actions** (click, long press) as typed events.
+
+Both platforms draw with the same renderer — the Compose Multiplatform player from
+[rc-players](https://github.com/yschimke/rc-players) — so one document looks and behaves the same
+everywhere. AndroidX's authoring JSON is supported too: converted on the device on Android, and by
+the bundled CLI for servers and iOS builds.
+
+```tsx
+<RemoteComposeView
+  style={{ height: 220 }}
+  source={require('./product_card.rc')}           // or { uri }, { base64 }, { json }
+  namedValues={{ title: 'Flat white', count, accent: { type: 'color', value: '#6750A4' } }}
+  onAction={(e) => e.kind === 'named' && e.name === 'add_to_cart' && setCount((c) => c + 1)}
+  onError={(e) => report(e)}                       // also logged to the console with fixes
+/>
+```
+
+| | Android | iOS |
+|---|---|---|
+| Renderer | rc-players `RcComposePlayer` in a `ComposeView` | rc-players `RcComposePlayer.xcframework` (SwiftPM) |
+| `.rc` from `uri` / `require` / `base64` | ✅ | ✅ |
+| AndroidX JSON (`{ json }`, `convertJsonToRc`) | ✅ on device (AndroidX `RemoteComposeJsonParser`) | ❌ — convert with `tools/remote-compose-json` |
+| Named values: float, string, color | ✅ | ✅ |
+| Named values: int, boolean | ✅ | ❌ (the iOS player controller sets float/string/color only) |
+| Actions: click, long press, metadata, numeric | ✅ | ✅ |
+| Bare React Native | ✅ | ✅ |
+| Expo (development build) | ✅ | ✅ |
+| Expo Go | ❌ (no third-party native code) | ❌ |
+
+## Requirements
+
+- React Native **0.88+**, New Architecture (Fabric). Expo SDK **58+**.
+- **Android:** Kotlin Gradle plugin **≥ 2.3** in the app. rc-players is built with Kotlin 2.4, whose
+  metadata React Native's default Kotlin 2.2 compiler cannot read
+  (`compiler version 2.2.0 can read versions up to 2.3.0`). minSdk 24, compileSdk 37.
+- **iOS:** 15.1+, Xcode 16+ (Swift 6 toolchain). **Apple-silicon simulators and devices only** —
+  rc-players publishes no x86_64 slice.
 
 ## Installation
 
+### Bare React Native
 
 ```sh
-npm install react-native-remote-compose
+yarn add react-native-remote-compose
+cd ios && bundle exec pod install
 ```
 
+`android/build.gradle` — pin a Kotlin that can read rc-players:
 
-## Usage
+```groovy
+buildscript {
+  ext { kotlinVersion = "2.3.21" }
+  dependencies { classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion") }
+}
+```
 
+`ios/<App>/Info.plist` — let Compose render at the display's full rate (ProMotion):
+
+```xml
+<key>CADisableMinimumFrameDurationOnPhone</key><true/>
+```
+
+The pod pulls rc-players' XCFramework through React Native's own
+[`spm_dependency`](https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/cocoapods/spm.rb)
+(rc-players ships only via Swift Package Manager); nothing else to configure.
+
+### Expo
+
+```sh
+npx expo install react-native-remote-compose
+```
+
+```json
+{ "expo": { "plugins": ["react-native-remote-compose"] } }
+```
+
+The config plugin sets `android.kotlinVersion` (≥ 2.3; never lowers a newer one), raises an explicit
+iOS deployment target below 15.1 (never lowers Expo's default) and adds the ProMotion plist key.
+Then build a [development build](https://docs.expo.dev/develop/development-builds/introduction/):
+`npx expo run:android` / `npx expo run:ios` (or EAS Build). Expo Go cannot load it.
+
+### Bundling `.rc` files
 
 ```js
-import { RemoteComposeView } from "react-native-remote-compose";
-
-// ...
-
-<RemoteComposeView color="#32a852" />
+// metro.config.js
+config.resolver.assetExts = [...config.resolver.assetExts, 'rc'];
 ```
 
+## API
 
-## Contributing
+### `<RemoteComposeView>`
 
-- [Development workflow](CONTRIBUTING.md#development-workflow)
-- [Sending a pull request](CONTRIBUTING.md#sending-a-pull-request)
-- [Code of conduct](CODE_OF_CONDUCT.md)
+| Prop | Type | |
+|---|---|---|
+| `source` | `require(...)` · `{ uri, headers? }` · `{ base64 }` · `{ json }` | Loaded natively, off the main thread. |
+| `namedValues` | `Record<string, number \| string \| boolean \| {type, value}>` | Plain values infer float/string/boolean; use `{ type: 'color' \| 'int', value }` otherwise. Bare names address the document's `USER:` domain. |
+| `theme` | `'system' \| 'light' \| 'dark'` | Picks the light/dark half of themed colors. |
+| `lenient` | `boolean` | Draw nothing for operations the player knows but cannot draw, instead of refusing the document. |
+| `onAction` | `(e) => void` | `{kind:'named', name, value, valueType}` · `{kind:'host', actionId}` · `{kind:'metadata', actionId, metadata}` |
+| `onLoad` | `(e) => void` | `{ byteLength, loadMs, decodeMs, namedValues }` — the names the document lets you set. |
+| `onError` | `(e) => void` | `{ code: 'load' \| 'document' \| 'unsupported' \| 'props', message }` |
+
+### Functions
+
+- `isJsonConversionSupported(): boolean` — `true` on Android.
+- `convertJsonToRc(json): Promise<string>` — AndroidX JSON → `.rc` (base64) on Android; rejects on iOS.
+- `formatError(error): string` — the console text for an error.
+
+### Errors
+
+Every error — invalid props, a failed load, a document the player refuses — is logged once to the
+console **with what to do about it**, whether or not you pass `onError`:
+
+```
+[react-native-remote-compose] load error: HTTP 404 for https://…/card.rc
+How to fix:
+  • Check the document URL; the server has no file there.
+```
+
+Importing the library never crashes the app; a missing native module is reported when first used,
+with rebuild instructions.
+
+## Authoring documents
+
+Author in Kotlin with Remote Compose's `@RemoteComposable` API, or as
+[AndroidX authoring JSON](https://github.com/androidx/androidx/blob/androidx-main/compose/remote/Documentation/parts/json-parser.md)
+from any backend. Convert JSON with the bundled CLI — it also runs rc-players' own renderability
+check, so a document the player would refuse fails **at build time**, not on a device:
+
+```sh
+tools/remote-compose-json/gradlew -p tools/remote-compose-json installDist
+remote-compose-json card.json card.rc          # one file
+remote-compose-json --dir documents/ out/      # every *.json
+remote-compose-json --dump card.rc             # print a document's structure
+```
+
+Lessons from the demo documents (all verified on devices):
+
+- **Host values live in `USER:`.** The JSON parser declares bare names (`accent`); the converter moves
+  them to `USER:accent`, which every player addresses (the iOS player only accepts that form).
+- **Text the host changes must not animate its bounds.** AndroidX animates every component to its new
+  size by default; a growing title then wraps out of sight for ~280 ms while it animates. Put
+  `{"animationSpec": 0}` (AndroidX's "land at once") on host-driven texts.
+- **Press, click and long press are different events.** `onTouchDown`/`onTouchUp`/`onTouchCancel`
+  drive a pressed state; `onClick` fires on release; `multiClick` with `clickType: 1` is a long press
+  (needs header `"profiles": 513`). Keep the pressed look for a minimum time after release
+  (`max(@pressed, clamp(1 - (time - @releasedAt) / 0.22, 0, 1))`) so fast taps are visible.
+- **Reference variables as `@name`** in action targets; a bare `"name"` becomes a text, not the variable.
+- **Read the clock through an expression** (`"time + 0"`), not the bare system id, in value changes.
+- Set `"densityBehavior": 2` and `"apiLevel": 8` so sizes are dp, not pixels.
+
+## Performance
+
+<!-- PERF -->
+
+## App size
+
+<!-- SIZE -->
+
+## How it works
+
+- **JS** maps props to a flat Codegen spec and events back to typed objects; it never touches
+  document bytes.
+- **Android** (Kotlin): `RemoteComposeView` (a `FrameLayout` hosting a `ComposeView`). Loading,
+  JSON conversion, decoding and rc-players' support check run on background dispatchers; the main
+  thread only swaps the decoded document into Compose state. Host values are matched against the
+  names and types the document declares; a mismatch is reported, never applied (the player would
+  throw).
+- **iOS** (Swift; Objective-C++ only for the Fabric component glue that Codegen requires):
+  `RemoteComposeHostView` loads bytes off the main thread and hosts rc-players'
+  `RemoteComposePlayerViewController`; values go through its `RemoteComposePlayerController`.
+
+## Development
+
+```
+src/                 library TypeScript (Codegen spec, view, diagnostics)
+android/  ios/       native views (Kotlin, Swift + thin Obj-C++)
+plugin/              Expo config plugin
+tools/remote-compose-json/   JSON → .rc CLI (AndroidX parser + rc-players checks)
+example/             bare React Native demo        example-expo/   Expo demo (CNG)
+example-shared/      screens and documents both demos use
+e2e/                 Maestro device flows
+scripts/             measurements
+```
+
+```sh
+yarn                        # install (lockfile immutable in CI)
+yarn lint && yarn typecheck && yarn test
+yarn example android | ios  # bare demo;  cd example-expo && npx expo run:android | run:ios
+maestro test -e APP_ID=remotecompose.example e2e/host-values.yaml e2e/network.yaml
+scripts/measure-size.sh     # what the library adds to an app
+```
+
+Tests describe behaviour, not implementation: the JS view contract and diagnostics (Jest +
+Testing Library), the Expo plugin's rules, converter output and demo-document integrity (Kotlin),
+host-value resolution (Android unit), and device E2E on bare and Expo apps (Maestro).
+
+### Supply chain
+
+Exact versions everywhere; `yarn.lock` is installed with `--immutable` in Yarn's hardened mode;
+install scripts are disabled; npm releases younger than 7 days are never resolved
+(`npmMinimalAgeGate`); OSV-Scanner gates CI with reviewed, expiring exceptions
+(`osv-scanner.toml`); Dependabot proposes updates with the same 7-day cooldown; GitHub Actions are
+pinned by SHA and downloaded tools by checksum. A local `commit-msg` hook enforces conventional
+commits.
+
+## Sources
+
+React Native [Fabric native components](https://reactnative.dev/docs/fabric-native-components-introduction) ·
+[create-react-native-library](https://oss.callstack.com/react-native-builder-bob/create) ·
+Expo [config plugins](https://docs.expo.dev/config-plugins/introduction/),
+[monorepos](https://docs.expo.dev/guides/monorepos/) ·
+[rc-players](https://github.com/yschimke/rc-players) (player API, Swift integration in
+`docs/design/RC_PLAYER_SWIFT.md`) ·
+AndroidX [Remote Compose](https://github.com/androidx/androidx/tree/androidx-main/compose/remote) ·
+TypeScript 7 [side by side with 6](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/) ·
+[React Native Testing Library v14](https://oss.callstack.com/react-native-testing-library/) ·
+[Maestro](https://maestro.mobile.dev) · [OSV-Scanner](https://google.github.io/osv-scanner/).
 
 ## License
 
 MIT
-
----
-
-Made with [create-react-native-library](https://github.com/callstack/react-native-builder-bob)
