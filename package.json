@@ -38,7 +38,7 @@
     "example": "yarn workspace react-native-remote-compose-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
-    "typecheck": "tsc",
+    "typecheck": "tsc && tsc -p example && tsc -p example-expo",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest",
     "measure:size": "node scripts/measure-size.ts",

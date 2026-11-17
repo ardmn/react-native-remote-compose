@@ -1,0 +1,13 @@
+{
+  "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    // The shared demo screens live outside this app: resolve their imports to this app's copies,
+    // as Metro does (metro.config.js), and the library to its sources.
+    "paths": {
+      "react-native-remote-compose": ["../src/index"],
+      "react-native-safe-area-context": ["./node_modules/react-native-safe-area-context"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", "../example-shared/src"],
+  "exclude": ["node_modules", "ios", "android", "vendor"]
+}
