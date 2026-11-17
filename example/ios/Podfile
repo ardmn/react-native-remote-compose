@@ -23,8 +23,11 @@ target 'RemoteComposeExample' do
   config = use_native_modules!
 
   # The library's XCTest unit tests (scheme RemoteCompose-Unit-Tests). Autolinking already adds the
-  # pod; this only adds its test spec.
-  pod 'RemoteCompose', :path => '../..', :testspecs => ['Tests']
+  # pod; this only adds its test spec. Not when measuring the app without the library
+  # (RC_SIZE_BASELINE, see react-native.config.js), which must not link it at all.
+  unless ENV['RC_SIZE_BASELINE'] == '1'
+    pod 'RemoteCompose', :path => '../..', :testspecs => ['Tests']
+  end
 
   use_react_native!(
     :path => config[:reactNativePath],

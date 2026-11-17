@@ -61,12 +61,17 @@ const RESULT_TIMEOUT_MS = 120_000;
 // with the results, and say so up front when it is high. Windows has no load average.
 const cores = availableParallelism();
 const hostLoad = (): string => (IS_WINDOWS ? 'n/a' : loadavg()[0]!.toFixed(1));
-const loadAtStart = hostLoad();
-if (!IS_WINDOWS && loadavg()[0]! > cores / 2) {
-  console.warn(
-    `warning: 1-min load ${loadAtStart} on ${cores} cores — results will be noisy; stop other work first.`
-  );
+/** Called after the build, right before the runs: the load that matters is the one they see. */
+function checkHostLoad(): string {
+  const load = hostLoad();
+  if (!IS_WINDOWS && loadavg()[0]! > cores / 2) {
+    console.warn(
+      `warning: 1-min load ${load} on ${cores} cores — results will be noisy; stop other work first.`
+    );
+  }
+  return load;
 }
+let loadBeforeRuns = 'n/a';
 
 const OUT = join(ROOT, 'build/perf');
 mkdirSync(OUT, { recursive: true });
@@ -168,6 +173,7 @@ async function measureAndroid(): Promise<{ device: string; results: Run[] }> {
   });
   adb('install', '-r', apk);
   adb('reverse', `tcp:${port}`, `tcp:${port}`);
+  loadBeforeRuns = checkHostLoad();
   const id = DEMO.androidApplicationId;
   const results: Run[] = [];
   try {
@@ -227,6 +233,7 @@ async function measureIos(): Promise<{ device: string; results: Run[] }> {
   };
   const results: Run[] = [];
   onPhase = () => {};
+  loadBeforeRuns = checkHostLoad();
   try {
     for (let i = 0; i < runs; i++) {
       terminate();
@@ -274,7 +281,7 @@ try {
     return `| ${name} | ${round(median(values))}${unit} | ${round(Math.min(...values))}–${round(Math.max(...values))}${unit} | ${firstValue === undefined ? '—' : `${round(firstValue)}${unit}`} |`;
   };
   const lines = [
-    `${platform} · ${device} · ${repeats.length} repeat launches + 1 first launch · host load ${loadAtStart} → ${hostLoad()} on ${cores} cores`,
+    `${platform} · ${device} · ${repeats.length} repeat launches + 1 first launch · host load ${loadBeforeRuns} → ${hostLoad()} on ${cores} cores during the runs`,
     '',
     '| Metric | Median (repeat launches) | Range | First launch |',
     '|---|---|---|---|',

@@ -87,6 +87,9 @@ function previousRows(): Record<string, Row> {
 }
 const rows = previousRows();
 
+/** Saved after every build, so a later failure keeps what was measured. */
+const save = () => writeFileSync(RAW, JSON.stringify(rows, null, 2));
+
 const baselineEnv = (variant: Variant) => ({
   RC_SIZE_BASELINE: variant === 'without' ? '1' : '0',
 });
@@ -132,6 +135,7 @@ async function android(variant: Variant, r8: boolean) {
     `--output-dir=${installed}`,
   ]);
   rows[label] = { download, install: directoryBytes(installed) };
+  save();
 }
 
 function ios(variant: Variant) {
@@ -148,6 +152,7 @@ function ios(variant: Variant) {
     log: join(OUT, `${label}.log`),
   });
   rows[label] = { download: deflatedBytes(app), install: directoryBytes(app) };
+  save();
 }
 
 /** Puts the demo's Pods back to "with the library", keeping the error that got us here. */
@@ -182,7 +187,7 @@ if (what === 'all' && !IS_MAC) {
     restorePods();
   }
 }
-writeFileSync(RAW, JSON.stringify(rows, null, 2));
+save();
 
 const lines = [
   '| | App without → with the library: download | on device | Library adds |',

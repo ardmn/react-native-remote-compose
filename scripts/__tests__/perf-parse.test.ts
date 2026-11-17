@@ -38,15 +38,11 @@ test('a report with a mistyped statistic names it', () => {
 });
 
 test('frame statistics are read from dumpsys gfxinfo', () => {
-  const text = [
-    'Total frames rendered: 180',
-    'Janky frames: 9 (5.00%)',
-    '99th percentile: 34ms',
-  ].join('\n');
-  assert.deepEqual(parseGfxinfo(text), {
-    frames: 180,
-    jankyPercent: 5,
-    p99: 34,
+  // Captured during `yarn measure:perf android`: 12 documents animating, Android 17 emulator.
+  assert.deepEqual(parseGfxinfo(fixture('gfxinfo-animating.txt')), {
+    frames: 185,
+    jankyPercent: 1.08,
+    p99: 38,
   });
 });
 
