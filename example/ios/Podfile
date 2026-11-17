@@ -5,6 +5,11 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
+# Prebuilt React Native core and dependencies: much faster builds, and the same pods locally and
+# in CI (a Podfile.lock made without them does not match one made with them).
+ENV['RCT_USE_RN_DEP'] ||= '1'
+ENV['RCT_USE_PREBUILT_RNCORE'] ||= '1'
+
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
