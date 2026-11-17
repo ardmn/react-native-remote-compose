@@ -39,7 +39,10 @@
     "prepare": "bob build",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
-    "test": "jest"
+    "test": "jest",
+    "measure:size": "node scripts/measure-size.ts",
+    "measure:perf": "node scripts/measure-perf.ts",
+    "documents": "node scripts/convert-documents.ts"
   },
   "keywords": [
     "react-native",
@@ -70,6 +73,7 @@
     "@react-native/jest-preset": "0.88.1",
     "@testing-library/react-native": "14.1.0",
     "@types/jest": "30.0.0",
+    "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@typescript/native": "npm:typescript@7.0.2",
     "del-cli": "8.0.1",

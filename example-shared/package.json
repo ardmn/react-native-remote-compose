@@ -4,9 +4,6 @@
   "private": true,
   "description": "Demo screens and documents shared by the bare React Native and Expo examples",
   "main": "src/index.tsx",
-  "scripts": {
-    "documents": "../tools/remote-compose-json/gradlew -p ../tools/remote-compose-json -q installDist && ../tools/remote-compose-json/build/install/remote-compose-json/bin/remote-compose-json --dir documents/json documents/rc"
-  },
   "peerDependencies": {
     "react": "*",
     "react-native": "*",

@@ -161,11 +161,30 @@ Lessons from the demo documents (all verified on devices):
 
 ## Performance
 
-<!-- PERF -->
+Measured with `yarn measure:perf android|ios` on **release** builds of the bare demo (Android with
+R8): 12 documents mounted at once, each animating continuously, 6 runs (run 1 cold), median with the
+range in brackets. Emulator and simulator on an Apple-silicon Mac with the host otherwise idle —
+indicative, not a phone benchmark; repeat on target devices before relying on exact numbers.
+
+| | Android (emulator, API 37) | iOS (simulator, iPhone 17) |
+|---|---|---|
+| 12 documents mounted → all loaded | **67 ms** (58–117) | **163 ms** (153–726) |
+| Load per document | 26 ms (16–31), background thread | 0.1 ms (bundled file), background |
+| Decode + validate per document | 8 ms (5–18), background thread | 2.5 ms (2.4–5), main thread¹ |
+| UI thread, 12 animating: janky frames | **0.5 %** (0–1.1) | — |
+| Longest JS-thread stall: no document → 12 animating | 25 → **21 ms** | 9.8 → **8.8 ms** |
+| JS frame callbacks/s: no document → 12 animating | 41 → 30 (both vary 30–60)² | 60 → **60** |
+
+What this shows: loading, decoding and validation never run on the JS thread; documents animate
+on the native side, so a dozen animating documents leave the JS thread as responsive as with none.
+
+¹ rc-players' iOS controller decodes as it is created; it runs on the main thread by design.
+² The Android emulator alternates JS frame callbacks between 30 and 60 per second even with no
+document on screen, so that row does not isolate the documents' cost.
 
 ## App size
 
-Measured with `scripts/measure-size.sh` on release builds of the bare demo, built with and
+Measured with `yarn measure:size` (`scripts/measure-size.ts`) on release builds of the bare demo, built with and
 without the library's native part (same JS, so the difference is the library):
 
 | | App without → with the library: download | install | **Library adds** |
@@ -218,7 +237,7 @@ tools/remote-compose-json/   JSON → .rc CLI (AndroidX parser + rc-players chec
 example/             bare React Native demo        example-expo/   Expo demo (CNG)
 example-shared/      screens and documents both demos use
 e2e/                 Maestro device flows
-scripts/             measurements
+scripts/             TypeScript tooling: measurements, document conversion (macOS, Linux, Windows)
 ```
 
 ```sh
@@ -226,7 +245,9 @@ yarn                        # install (lockfile immutable in CI)
 yarn lint && yarn typecheck && yarn test
 yarn example android | ios  # bare demo;  cd example-expo && npx expo run:android | run:ios
 maestro test -e APP_ID=remotecompose.example e2e/host-values.yaml e2e/network.yaml
-scripts/measure-size.sh     # what the library adds to an app
+yarn documents              # regenerate demo .rc files from their JSON
+yarn measure:size           # what the library adds to an app (Android on any OS, iOS on macOS)
+yarn measure:perf android   # release-build performance (also: ios)
 ```
 
 Tests describe behaviour, not implementation: the JS view contract and diagnostics (Jest +

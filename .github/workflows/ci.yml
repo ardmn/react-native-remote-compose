@@ -76,7 +76,7 @@ jobs:
 
       - name: Demo documents are up to date with their JSON
         run: |
-          tools/remote-compose-json/build/install/remote-compose-json/bin/remote-compose-json --dir example-shared/documents/json example-shared/documents/rc
+          yarn documents
           git diff --exit-code -- example-shared/documents/rc
 
       - name: Android unit tests (host value resolution)

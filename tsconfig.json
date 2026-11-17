@@ -35,8 +35,10 @@
     "target": "ESNext",
     "verbatimModuleSyntax": true,
     "types": [
-      "jest"
-    ]
+      "jest",
+      "node"
+    ],
+    "allowImportingTsExtensions": true
   },
   "exclude": [
     "**/node_modules",

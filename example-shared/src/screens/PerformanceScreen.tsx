@@ -71,7 +71,14 @@ function measureFps(durationMs: number): Promise<number> {
  * rate while every document animates, and how fast host values can be pushed.
  * Results are printed as one `RC_PERF {…}` log line for collection from logcat / simctl.
  */
-export function PerformanceScreen({ autorun = false }: { autorun?: boolean }) {
+export function PerformanceScreen({
+  autorun = false,
+  reportUrl,
+}: {
+  autorun?: boolean;
+  /** Where scripts/measure-perf.ts listens for phase markers and the result. */
+  reportUrl?: string;
+}) {
   const [mounted, setMounted] = useState(false);
   const [speed, setSpeed] = useState(2);
   const [report, setReport] = useState<Report | null>(null);
@@ -84,6 +91,27 @@ export function PerformanceScreen({ autorun = false }: { autorun?: boolean }) {
     if (loads.current.length === PLAYERS) allLoaded.current();
   }, []);
 
+  const post = useCallback(
+    (body: object) =>
+      reportUrl
+        ? fetch(reportUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          }).catch(() => undefined)
+        : Promise.resolve(undefined),
+    [reportUrl]
+  );
+  // A phase marker waits for the script's acknowledgement, so the frame statistics it resets
+  // cover exactly the phase that follows.
+  const phase = useCallback(
+    async (name: string) => {
+      console.log(`RC_PERF_PHASE ${name}`);
+      await post({ phase: name });
+    },
+    [post]
+  );
+
   const run = useCallback(async () => {
     setRunning(true);
     setReport(null);
@@ -93,7 +121,7 @@ export function PerformanceScreen({ autorun = false }: { autorun?: boolean }) {
 
     // 0. Baseline: the same measurements with no document on screen, so the numbers below can be
     // read as "what the documents cost" rather than "what this device can do".
-    console.log('RC_PERF_PHASE idle');
+    await phase('idle');
     const stopIdleMonitor = startStallMonitor();
     const jsFpsIdle = await measureFps(ANIMATE_MS);
     const jsMaxStallMsIdle = stopIdleMonitor();
@@ -112,12 +140,12 @@ export function PerformanceScreen({ autorun = false }: { autorun?: boolean }) {
     const jsMaxStallMsDuringMount = stopMountMonitor();
 
     // 2. Every document animates; measure the JS thread meanwhile.
-    console.log('RC_PERF_PHASE animating');
+    await phase('animating');
     const stopAnimMonitor = startStallMonitor();
     const jsFpsWhileAnimating = await measureFps(ANIMATE_MS);
     const jsMaxStallMsWhileAnimating = stopAnimMonitor();
 
-    console.log('RC_PERF_PHASE updates');
+    await phase('updates');
     // 3. Push a named value to every player as fast as React commits.
     let updates = 0;
     const updateStart = performance.now();
@@ -148,9 +176,10 @@ export function PerformanceScreen({ autorun = false }: { autorun?: boolean }) {
       namedValueUpdatesPerSec,
     };
     console.log(`RC_PERF ${JSON.stringify(result)}`);
+    await post({ result });
     setReport(result);
     setRunning(false);
-  }, []);
+  }, [phase, post]);
 
   useEffect(() => {
     if (autorun) run();

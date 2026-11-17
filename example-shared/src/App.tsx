@@ -3,6 +3,7 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
+  Settings,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -25,10 +26,14 @@ const LABELS: Record<Tab, string> = {
   perf: 'Performance',
 };
 
-/** `rcdemo://perf?autorun=1` opens a tab (and starts the benchmark) from adb / simctl. */
+/**
+ * `rcdemo://perf?autorun=1&report=<url>` opens a tab and starts the benchmark, posting its phases and
+ * result to `report` (scripts/measure-perf.ts listens there).
+ */
 function parseLink(url: string | null | undefined): {
   tab?: Tab;
   autorun: boolean;
+  reportUrl?: string;
 } {
   if (!url) return { autorun: false };
   const match = /^rcdemo:\/\/(\w+)(\?.*)?$/.exec(url);
@@ -36,20 +41,31 @@ function parseLink(url: string | null | undefined): {
   return {
     tab: tab && TABS.includes(tab) ? tab : undefined,
     autorun: /autorun=1/.test(match?.[2] ?? ''),
+    reportUrl: (() => {
+      const report = /[?&]report=([^&]+)/.exec(match?.[2] ?? '')?.[1];
+      return report ? decodeURIComponent(report) : undefined;
+    })(),
   };
 }
 
 export function DemoApp({ title }: { title: string }) {
   const [tab, setTab] = useState<Tab>('host');
   const [autorun, setAutorun] = useState(false);
+  const [reportUrl, setReportUrl] = useState<string>();
 
   useEffect(() => {
     const apply = (url: string | null | undefined) => {
       const link = parseLink(url);
       if (link.tab) setTab(link.tab);
       setAutorun(link.autorun);
+      setReportUrl(link.reportUrl);
     };
-    Linking.getInitialURL().then(apply);
+    // iOS: `xcrun simctl launch <device> <app> -rcdemoLink <link>` puts the link in NSUserDefaults,
+    // which React Native's Settings reads — no "Open in …?" prompt, unlike `simctl openurl`.
+    const launchLink: unknown =
+      Platform.OS === 'ios' ? Settings.get('rcdemoLink') : undefined;
+    if (typeof launchLink === 'string' && launchLink) apply(launchLink);
+    else Linking.getInitialURL().then(apply);
     const sub = Linking.addEventListener('url', ({ url }) => apply(url));
     return () => sub.remove();
   }, []);
@@ -82,7 +98,9 @@ export function DemoApp({ title }: { title: string }) {
             {tab === 'host' && <HostValuesScreen />}
             {tab === 'json' && <JsonScreen />}
             {tab === 'network' && <NetworkScreen />}
-            {tab === 'perf' && <PerformanceScreen autorun={autorun} />}
+            {tab === 'perf' && (
+              <PerformanceScreen autorun={autorun} reportUrl={reportUrl} />
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
