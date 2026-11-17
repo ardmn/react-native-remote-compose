@@ -83,6 +83,12 @@ iOS deployment target below 15.1 (never lowers Expo's default) and adds the ProM
 Then build a [development build](https://docs.expo.dev/develop/development-builds/introduction/):
 `npx expo run:android` / `npx expo run:ios` (or EAS Build). Expo Go cannot load it.
 
+### Release builds
+
+- Android: turn on R8 for release (`def enableProguardInReleaseBuilds = true` in
+  `android/app/build.gradle`); it cuts the library's cost from +7.4 MB to +1.5 MB download
+  (see [App size](#app-size)). No keep rules are needed.
+
 ### Bundling `.rc` files
 
 ```js
@@ -159,7 +165,35 @@ Lessons from the demo documents (all verified on devices):
 
 ## App size
 
-<!-- SIZE -->
+Measured with `scripts/measure-size.sh` on release builds of the bare demo, built with and
+without the library's native part (same JS, so the difference is the library):
+
+| | App without → with the library: download | install | **Library adds** |
+|---|---|---|---|
+| **Android** arm64, R8 on | 15.81 → 17.32 MB | 16.98 → 19.79 MB | **+1.5 MB download / +2.8 MB install** |
+| Android arm64, R8 off | 18.98 → 26.37 MB | 26.50 → 46.81 MB | +7.4 MB / +20.3 MB |
+| **iOS** arm64 | 4.25 → 17.42 MB | 11.23 → 49.25 MB | **+13.2 MB download / +38.0 MB install** |
+
+*Download* is the compressed per-device artifact (the arm64 APK Play serves; a `zip -9` of the
+stripped `.app`). *Install* is the unpacked size on the device. iOS binaries are stripped as an App
+Store archive strips them. The iOS download is a **lower bound**: the App Store encrypts the
+executable and encrypted bytes do not compress, so the real figure (App Store Connect's App Thinning
+report) can be higher.
+
+**Why iOS costs more.** Both platforms run the same Compose Multiplatform renderer, but:
+
+- **Android** already ships the graphics engine: Compose draws through `android.graphics`, whose
+  Skia lives in the OS. The APK carries no Skia at all (its only extra native file is androidx's
+  10 KB `libandroidx.graphics.path.so`); what the library adds is Kotlin/JVM bytecode — Compose,
+  the player, Kotlin coroutines — which **R8 shrinks to what is used**.
+- **iOS** has no Compose and no Skia. rc-players' XCFramework statically links the Compose
+  Multiplatform UI, **Skia (Skiko — ~102 000 Skia symbols in the framework)** and the Kotlin/Native
+  runtime into the app binary. Static linking keeps only reachable code, but a whole UI toolkit and
+  a 2D graphics engine remain.
+
+**Enable R8 on Android** (`minifyEnabled true` in release; React Native's template ships it off):
+without it the same library costs 5× more download and 7× more install. The release build with R8
+was run on a device with no extra keep rules (no crashes, documents render).
 
 ## How it works
 

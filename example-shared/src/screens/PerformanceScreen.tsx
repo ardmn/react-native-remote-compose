@@ -16,6 +16,8 @@ const ANIMATE_MS = 3000;
 type Report = {
   platform: string;
   players: number;
+  jsFpsIdle: number;
+  jsMaxStallMsIdle: number;
   mountToAllLoadedMs: number;
   loadMs: { avg: number; max: number };
   decodeMs: { avg: number; max: number };
@@ -89,6 +91,13 @@ export function PerformanceScreen({ autorun = false }: { autorun?: boolean }) {
     await new Promise<void>((resolve) => setTimeout(() => resolve(), 300));
     loads.current = [];
 
+    // 0. Baseline: the same measurements with no document on screen, so the numbers below can be
+    // read as "what the documents cost" rather than "what this device can do".
+    console.log('RC_PERF_PHASE idle');
+    const stopIdleMonitor = startStallMonitor();
+    const jsFpsIdle = await measureFps(ANIMATE_MS);
+    const jsMaxStallMsIdle = stopIdleMonitor();
+
     // 1. Mount PLAYERS documents at once.
     const stopMountMonitor = startStallMonitor();
     const mountStart = performance.now();
@@ -103,10 +112,12 @@ export function PerformanceScreen({ autorun = false }: { autorun?: boolean }) {
     const jsMaxStallMsDuringMount = stopMountMonitor();
 
     // 2. Every document animates; measure the JS thread meanwhile.
+    console.log('RC_PERF_PHASE animating');
     const stopAnimMonitor = startStallMonitor();
     const jsFpsWhileAnimating = await measureFps(ANIMATE_MS);
     const jsMaxStallMsWhileAnimating = stopAnimMonitor();
 
+    console.log('RC_PERF_PHASE updates');
     // 3. Push a named value to every player as fast as React commits.
     let updates = 0;
     const updateStart = performance.now();
@@ -126,6 +137,8 @@ export function PerformanceScreen({ autorun = false }: { autorun?: boolean }) {
     const result: Report = {
       platform: `${Platform.OS} ${Platform.Version}`,
       players: PLAYERS,
+      jsFpsIdle,
+      jsMaxStallMsIdle,
       mountToAllLoadedMs,
       loadMs: stats(loads.current.map((l) => l.loadMs)),
       decodeMs: stats(loads.current.map((l) => l.decodeMs)),

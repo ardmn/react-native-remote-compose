@@ -46,6 +46,7 @@
     "example/android",
     "example-expo/ios",
     "example-expo/android",
-    "example-expo/.expo"
+    "example-expo/.expo",
+    "build"
   ]
 }

@@ -5,7 +5,8 @@
 #
 #   Android: arm64-v8a release APK. APK bytes ≈ Play download for one device (Play serves
 #            per-ABI splits); unzipped bytes ≈ install size. Measured with R8 on and off.
-#   iOS:     arm64 device Release .app. Bytes ≈ install size; zip -9 of it ≈ App Store download.
+#   iOS:     arm64 device Release .app, symbols stripped as an App Store archive strips them.
+#            Bytes ≈ install size; zip -9 of it ≈ App Store download.
 #
 # Usage: scripts/measure-size.sh [android|ios|all]   (results in build/size/report.md)
 set -euo pipefail
@@ -40,11 +41,22 @@ ios() { # $1 = with|without
       -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
       -derivedDataPath "$OUT/dd-$1" CODE_SIGNING_ALLOWED=NO build >"$OUT/$label.log" 2>&1 )
   local app="$OUT/dd-$1/Build/Products/Release-iphoneos/RemoteComposeExample.app"
+  # An App Store archive strips the shipped binaries (STRIP_STYLE=all); `xcodebuild build` does
+  # not. Strip every Mach-O in the bundle the same way so the size is what users get.
+  find "$app" -type f | while read -r f; do
+    if file "$f" | grep -q "Mach-O"; then xcrun strip "$f" 2>/dev/null || xcrun strip -x "$f"; fi
+  done
   ( cd "$(dirname "$app")" && rm -f "$OUT/$label.zip" && zip -qr9 "$OUT/$label.zip" "$(basename "$app")" )
   echo "$label $(bytes "$OUT/$label.zip") $(dirbytes "$app")" >>"$OUT/raw.txt"
 }
 
-: >"$OUT/raw.txt"
+# A platform run replaces only that platform's rows, so `all` can be refreshed piecemeal.
+touch "$OUT/raw.txt"
+case "$WHAT" in
+  all) : >"$OUT/raw.txt" ;;
+  android | ios) grep -v "^$WHAT-" "$OUT/raw.txt" >"$OUT/raw.tmp" || true; mv "$OUT/raw.tmp" "$OUT/raw.txt" ;;
+  *) echo "usage: $0 [android|ios|all]" >&2; exit 2 ;;
+esac
 if [ "$WHAT" = android ] || [ "$WHAT" = all ]; then
   for r8 in true false; do android without $r8; android with $r8; done
 fi

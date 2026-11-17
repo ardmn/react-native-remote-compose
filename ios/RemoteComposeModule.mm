@@ -1,22 +1,24 @@
 #import "RemoteComposeModule.h"
 
-/// iOS has no on-device converter for AndroidX authoring JSON (the only implementation is
-/// AndroidX's Java `RemoteComposeJsonParser`). Convert on a server or at build time instead.
+#if __has_include(<RemoteCompose/RemoteCompose-Swift.h>)
+#import <RemoteCompose/RemoteCompose-Swift.h>
+#else
+#import "RemoteCompose-Swift.h"
+#endif
+
+/// Thin TurboModule glue; the behaviour lives in Swift (`RemoteComposeJson`).
 @implementation RemoteComposeModule
 
 RCT_EXPORT_MODULE(RemoteComposeModule)
 
 - (NSNumber *)isJsonConversionSupported {
-  return @NO;
+  return @(RemoteComposeJson.isConversionSupported);
 }
 
 - (void)convertJsonToRc:(NSString *)json
                 resolve:(RCTPromiseResolveBlock)resolve
                  reject:(RCTPromiseRejectBlock)reject {
-  reject(@"E_UNSUPPORTED",
-         @"JSON to .rc conversion is available on Android only. Convert on the server or at build time "
-          "(tools/remote-compose-json) and pass the .rc as uri or base64.",
-         nil);
+  reject(@"E_UNSUPPORTED", RemoteComposeJson.unsupportedMessage, nil);
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

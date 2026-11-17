@@ -133,11 +133,7 @@ public final class RemoteComposeHostView: UIView {
       return
     }
     if let json = request.json, !json.isEmpty, (request.base64 ?? "").isEmpty {
-      emitError(
-        "unsupported",
-        "JSON documents are converted on Android only. Convert on the server or at build time "
-          + "(tools/remote-compose-json) and pass the .rc as uri or base64."
-      )
+      emitError("unsupported", RemoteComposeJson.unsupportedMessage)
       return
     }
     loadTask = Task.detached(priority: .userInitiated) { [request] in
