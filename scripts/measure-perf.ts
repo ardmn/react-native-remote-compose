@@ -61,15 +61,29 @@ const RESULT_TIMEOUT_MS = 120_000;
 // with the results, and say so up front when it is high. Windows has no load average.
 const cores = availableParallelism();
 const hostLoad = (): string => (IS_WINDOWS ? 'n/a' : loadavg()[0]!.toFixed(1));
-/** Called after the build, right before the runs: the load that matters is the one they see. */
-function checkHostLoad(): string {
-  const load = hostLoad();
-  if (!IS_WINDOWS && loadavg()[0]! > cores / 2) {
+const IDLE_WAIT_MS = 10 * 60_000;
+const IDLE_POLL_MS = 10_000;
+
+/**
+ * Called after the build, right before the runs: the build itself heats the machine, and the load
+ * that matters is the one the runs see. Waits (up to 10 minutes) for the 1-minute load to fall below
+ * half the cores, then returns it; warns if it never does.
+ */
+async function waitForIdleHost(): Promise<string> {
+  if (IS_WINDOWS) return hostLoad();
+  const deadline = Date.now() + IDLE_WAIT_MS;
+  while (loadavg()[0]! > cores / 2 && Date.now() < deadline) {
+    console.log(
+      `waiting for the host to settle: 1-min load ${hostLoad()} on ${cores} cores…`
+    );
+    await new Promise((resolve) => setTimeout(resolve, IDLE_POLL_MS));
+  }
+  if (loadavg()[0]! > cores / 2) {
     console.warn(
-      `warning: 1-min load ${load} on ${cores} cores — results will be noisy; stop other work first.`
+      `warning: 1-min load ${hostLoad()} on ${cores} cores — results will be noisy; stop other work first.`
     );
   }
-  return load;
+  return hostLoad();
 }
 let loadBeforeRuns = 'n/a';
 
@@ -91,6 +105,8 @@ const isPhase = (value: unknown): value is PerfPhase =>
 let onPhase: (phase: PerfPhase) => void = () => {};
 /** Resolves with the current run's result; replaced per run. */
 let deliverResult: (body: unknown) => void = () => {};
+/** Fails the current run, e.g. when a phase's statistics cannot be read; replaced per run. */
+let failRun: (error: unknown) => void = () => {};
 
 const server = createServer((request, response) => {
   let data = '';
@@ -109,8 +125,13 @@ const server = createServer((request, response) => {
         ? body.phase
         : undefined;
     // Reset frame statistics before acknowledging, so they cover exactly the phase that follows.
-    if (isPhase(phase)) onPhase(phase);
-    else if (typeof body === 'object' && body !== null && 'result' in body)
+    if (isPhase(phase)) {
+      try {
+        onPhase(phase);
+      } catch (e) {
+        failRun(e);
+      }
+    } else if (typeof body === 'object' && body !== null && 'result' in body)
       deliverResult(body.result);
     response.end('ok');
   });
@@ -137,6 +158,10 @@ function nextResult(): Promise<PerfReport> {
         ),
       RESULT_TIMEOUT_MS
     );
+    failRun = (error) => {
+      clearTimeout(timer);
+      reject(error);
+    };
     deliverResult = (body) => {
       clearTimeout(timer);
       try {
@@ -150,7 +175,7 @@ function nextResult(): Promise<PerfReport> {
 
 let gfxSnapshots = 0;
 /** Reads (and optionally resets) the frame statistics; the raw output is kept next to the report. */
-function gfxinfo(reset = false): Frames {
+function gfxinfo(reset = false): Frames | undefined {
   const text = adb(
     'shell',
     'dumpsys',
@@ -173,17 +198,25 @@ async function measureAndroid(): Promise<{ device: string; results: Run[] }> {
   });
   adb('install', '-r', apk);
   adb('reverse', `tcp:${port}`, `tcp:${port}`);
-  loadBeforeRuns = checkHostLoad();
+  loadBeforeRuns = await waitForIdleHost();
   const id = DEMO.androidApplicationId;
   const results: Run[] = [];
   try {
     for (let i = 0; i < runs; i++) {
       const stats: { idle?: Frames; animating?: Frames } = {};
-      // A phase's statistics are read (and reset) when the next phase starts.
+      // A phase's statistics are read (and reset) when the next phase starts. With no document the
+      // screen may draw nothing (no statistics); 12 animating documents must draw.
       onPhase = (phase) => {
         const previous = gfxinfo(true);
         if (phase === 'mount') stats.idle = previous;
-        if (phase === 'updates') stats.animating = previous;
+        if (phase === 'updates') {
+          if (!previous) {
+            throw new Error(
+              'dumpsys gfxinfo counted no frames while 12 documents animated: was the app in front, and the screen on?'
+            );
+          }
+          stats.animating = previous;
+        }
       };
       adb('shell', 'am', 'force-stop', id);
       if (i === 0) adb('shell', 'pm', 'clear', id);
@@ -233,7 +266,7 @@ async function measureIos(): Promise<{ device: string; results: Run[] }> {
   };
   const results: Run[] = [];
   onPhase = () => {};
-  loadBeforeRuns = checkHostLoad();
+  loadBeforeRuns = await waitForIdleHost();
   try {
     for (let i = 0; i < runs; i++) {
       terminate();

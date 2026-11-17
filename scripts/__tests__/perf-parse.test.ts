@@ -46,12 +46,9 @@ test('frame statistics are read from dumpsys gfxinfo', () => {
   });
 });
 
-test('a phase with no frame is refused: Android prints a meaningless percentile then', () => {
+test('a phase with no frame has no statistics, not the meaningless percentiles Android prints', () => {
   // Captured from an emulator (Android 17): 0 frames, yet "99th percentile: 4950ms".
-  assert.throws(
-    () => parseGfxinfo(fixture('gfxinfo-no-frames.txt')),
-    /no frames/
-  );
+  assert.equal(parseGfxinfo(fixture('gfxinfo-no-frames.txt')), undefined);
 });
 
 test('a changed dumpsys format fails naming the missing line', () => {

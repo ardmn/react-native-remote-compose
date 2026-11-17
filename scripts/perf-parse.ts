@@ -59,21 +59,17 @@ function gfxNumber(text: string, label: string, re: RegExp): number {
 }
 
 /**
- * The frame statistics `dumpsys gfxinfo <package>` prints. With no frame rendered, Android still
- * prints percentiles (its largest histogram bucket, e.g. 4950 ms): that phase has no data, so it
- * fails rather than reporting them.
+ * The frame statistics `dumpsys gfxinfo <package>` prints, or undefined when no frame was drawn:
+ * a static screen draws none, and Android then still prints percentiles (its largest histogram
+ * bucket, e.g. 4950 ms) that must not be reported as data.
  */
-export function parseGfxinfo(text: string): Frames {
+export function parseGfxinfo(text: string): Frames | undefined {
   const frames = gfxNumber(
     text,
     'Total frames rendered',
     /Total frames rendered: (\d+)/
   );
-  if (frames === 0) {
-    throw new Error(
-      'dumpsys gfxinfo counted no frames in this phase: the app drew nothing (was it in front, and the screen on?).'
-    );
-  }
+  if (frames === 0) return undefined;
   return {
     frames,
     jankyPercent: gfxNumber(
