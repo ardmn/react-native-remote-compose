@@ -42,6 +42,9 @@ jobs:
       - name: Unit tests (library contract, diagnostics, Expo plugin)
         run: yarn test --ci
 
+      - name: Script tests (native contract, measurement parsing)
+        run: yarn test:scripts
+
       - name: Lint Kotlin (ktlint, checksum-pinned)
         run: |
           curl -sSfL -o /tmp/ktlint https://github.com/pinterest/ktlint/releases/download/1.8.0/ktlint

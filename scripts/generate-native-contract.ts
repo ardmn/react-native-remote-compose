@@ -15,10 +15,26 @@
  * Usage: yarn contract           regenerate
  *        yarn contract --check   fail when the committed files differ (CI, pre-commit)
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join, relative } from 'node:path';
+import type {
+  ComponentShape,
+  EventTypeAnnotation,
+  NamedShape,
+  PropTypeAnnotation,
+} from '@react-native/codegen/lib/CodegenSchema';
+import { TypeScriptParser } from '@react-native/codegen/lib/parsers/typescript/parser.js';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import nodePath, { dirname, join } from 'node:path';
+import ts from 'typescript';
 import { ROOT } from './lib.ts';
+
+/** A repository path with `/` on every OS: it is printed into generated files. */
+export function repoPath(
+  path: string,
+  root: string = ROOT,
+  api: Pick<typeof nodePath, 'relative' | 'sep'> = nodePath
+): string {
+  return api.relative(root, path).split(api.sep).join('/');
+}
 
 const SPEC = join(ROOT, 'src/RemoteComposeViewNativeComponent.ts');
 const KOTLIN = join(
@@ -60,33 +76,9 @@ const STRING_UNION_FIELDS: Record<string, { alias: string; default: string }> =
     },
   };
 
-// region schema (the subset of Codegen's component schema this contract uses)
-
-type Annotation =
-  | { type: 'StringTypeAnnotation' }
-  | { type: 'BooleanTypeAnnotation' }
-  | { type: 'Int32TypeAnnotation' }
-  | { type: 'DoubleTypeAnnotation' }
-  | { type: 'FloatTypeAnnotation' }
-  | { type: 'StringEnumTypeAnnotation'; default: string; options: string[] }
-  | {
-      type: 'UnionTypeAnnotation';
-      types: { type: 'StringLiteralTypeAnnotation'; value: string }[];
-    }
-  | { type: 'ArrayTypeAnnotation'; elementType: Annotation }
-  | { type: 'ObjectTypeAnnotation'; properties: Property[] };
-
-type Property = { name: string; optional: boolean; typeAnnotation: Annotation };
-
-type EventSchema = {
-  name: string;
-  bubblingType: 'direct' | 'bubble';
-  typeAnnotation: { argument: { properties: Property[] } };
-};
-
-type ComponentSchema = { props: Property[]; events: EventSchema[] };
-
-// endregion
+/** A prop or event field as Codegen's schema describes it (its published types). */
+type Annotation = PropTypeAnnotation | EventTypeAnnotation;
+type Property = NamedShape<Annotation>;
 
 // region model
 
@@ -96,11 +88,19 @@ type EnumModel = {
   key: string;
   name: string;
   values: string[];
-  /** Set for props: the value a missing or unknown wire string falls back to. */
-  default?: string;
   /** The C++ enum Codegen generates for it, or null when it travels as a `std::string`. */
   cpp: string | null;
-};
+} & (
+  | {
+      /** A prop: JS → native. A missing or unknown wire value becomes `default`. */
+      direction: 'toNative';
+      default: string;
+    }
+  | {
+      /** An event field: native → JS. */
+      direction: 'toJs';
+    }
+);
 
 type FieldType =
   | { kind: 'scalar'; scalar: Scalar }
@@ -138,13 +138,72 @@ function nameFor(key: string): string {
   const name = NAMES[key];
   if (!name) {
     throw new Error(
-      `No native name for "${key}" in ${relative(ROOT, SPEC)}: add it to NAMES in scripts/generate-native-contract.ts`
+      `No native name for "${key}" in ${repoPath(SPEC)}: add it to NAMES in scripts/generate-native-contract.ts`
     );
   }
   return name;
 }
 
-function scalarOf(annotation: Annotation, where: string): Scalar {
+/** Words a wire value cannot be, because it becomes a Kotlin or Swift identifier. */
+const RESERVED = new Set([
+  'as',
+  'break',
+  'case',
+  'class',
+  'continue',
+  'default',
+  'do',
+  'else',
+  'enum',
+  'extension',
+  'false',
+  'for',
+  'fun',
+  'func',
+  'if',
+  'import',
+  'in',
+  'init',
+  'internal',
+  'is',
+  'let',
+  'nil',
+  'null',
+  'object',
+  'private',
+  'protocol',
+  'public',
+  'return',
+  'self',
+  'static',
+  'struct',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'typealias',
+  'val',
+  'var',
+  'when',
+  'where',
+  'while',
+]);
+
+/** Fails, naming the spec field, for a value that cannot be a Kotlin/Swift/C++ enum case. */
+export function checkIdentifier(key: string, value: string): void {
+  if (!/^[a-z][A-Za-z0-9]*$/.test(value) || RESERVED.has(value)) {
+    throw new Error(
+      `${key}: "${value}" cannot be a native enum case; use a lowerCamelCase word that is not a Kotlin or Swift keyword`
+    );
+  }
+}
+
+function scalarOf(
+  annotation: { readonly type: string },
+  where: string
+): Scalar {
   switch (annotation.type) {
     case 'StringTypeAnnotation':
       return 'string';
@@ -161,21 +220,27 @@ function scalarOf(annotation: Annotation, where: string): Scalar {
   }
 }
 
-function buildContract(component: string, schema: ComponentSchema): Contract {
+function buildContract(
+  component: string,
+  schema: ComponentShape,
+  specPath: string
+): Contract {
   const enums: EnumModel[] = [];
 
   const enumFrom = (
     key: string,
-    values: string[],
+    values: readonly string[],
     cpp: string | null,
-    fallback?: string
+    direction:
+      { direction: 'toNative'; default: string } | { direction: 'toJs' }
   ): EnumModel => {
+    values.forEach((value) => checkIdentifier(key, value));
     const model: EnumModel = {
       key,
       name: nameFor(key),
-      values,
-      default: fallback,
+      values: [...values],
       cpp,
+      ...direction,
     };
     enums.push(model);
     return model;
@@ -183,8 +248,9 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
 
   const fieldsOf = (
     owner: string,
-    properties: Property[],
-    enumCpp: (field: string) => string
+    properties: readonly Property[],
+    enumCpp: (field: string) => string,
+    direction: 'toNative' | 'toJs'
   ): Field[] =>
     properties.map(({ name, typeAnnotation: t }) => {
       const key = `${owner}.${name}`;
@@ -194,7 +260,10 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
             name,
             type: {
               kind: 'enum',
-              model: enumFrom(key, t.options, enumCpp(name), t.default),
+              model: enumFrom(key, t.options, enumCpp(name), {
+                direction: 'toNative',
+                default: t.default,
+              }),
             },
           };
         case 'UnionTypeAnnotation':
@@ -205,7 +274,8 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
               model: enumFrom(
                 key,
                 t.types.map((literal) => literal.value),
-                enumCpp(name)
+                enumCpp(name),
+                { direction: 'toJs' }
               ),
             },
           };
@@ -217,7 +287,12 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
         default: {
           const union = STRING_UNION_FIELDS[key];
           if (union && t.type === 'StringTypeAnnotation') {
-            const values = stringUnion(union.alias);
+            if (direction !== 'toNative') {
+              throw new Error(
+                `${key}: string-union fields are supported in props only`
+              );
+            }
+            const values = stringUnion(specPath, union.alias);
             if (!values.includes(union.default)) {
               throw new Error(
                 `${key}: default "${union.default}" is not in ${union.alias}`
@@ -227,7 +302,10 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
               name,
               type: {
                 kind: 'enum',
-                model: enumFrom(key, values, null, union.default),
+                model: enumFrom(key, values, null, {
+                  direction: 'toNative',
+                  default: union.default,
+                }),
               },
             };
           }
@@ -244,7 +322,10 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
         prop.name,
         t.options,
         component + capitalize(prop.name),
-        t.default
+        {
+          direction: 'toNative',
+          default: t.default,
+        }
       );
       return { name: prop.name, type: { kind: 'enum', model } };
     }
@@ -262,7 +343,8 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
         fields: fieldsOf(
           prop.name,
           t.elementType.properties,
-          (field) => component + capitalize(field)
+          (field) => component + capitalize(field),
+          'toNative'
         ),
         cpp: `${component}${capitalize(prop.name)}Struct`,
       };
@@ -289,13 +371,17 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
       );
     }
     const struct = capitalize(event.name);
+    const argument = event.typeAnnotation.argument;
+    if (!argument)
+      throw new Error(`${event.name}: an event needs a payload type`);
     return {
       key: event.name,
       name: nameFor(event.name),
       fields: fieldsOf(
         event.name,
-        event.typeAnnotation.argument.properties,
-        (field) => `${emitter}::${struct}${capitalize(field)}`
+        argument.properties,
+        (field) => `${emitter}::${struct}${capitalize(field)}`,
+        'toJs'
       ),
       cpp: `${emitter}::${struct}`,
       registrationName: event.name,
@@ -303,8 +389,9 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
     };
   });
 
+  // An entry is stale once its field is no longer a plain string, even if it became a real union.
   const unusedUnions = Object.keys(STRING_UNION_FIELDS).filter(
-    (key) => !enums.some((e) => e.key === key)
+    (key) => !enums.some((e) => e.key === key && e.cpp === null)
   );
   if (unusedUnions.length > 0) {
     throw new Error(
@@ -324,11 +411,10 @@ function buildContract(component: string, schema: ComponentSchema): Contract {
 }
 
 /** The members of `export type <alias> = 'a' | 'b' | …` in the spec, read with TypeScript's parser. */
-function stringUnion(alias: string): string[] {
-  const ts = require('typescript') as typeof import('typescript');
+function stringUnion(specPath: string, alias: string): string[] {
   const source = ts.createSourceFile(
-    SPEC,
-    readFileSync(SPEC, 'utf8'),
+    specPath,
+    readFileSync(specPath, 'utf8'),
     ts.ScriptTarget.Latest
   );
   const declaration = source.statements.find(
@@ -346,7 +432,7 @@ function stringUnion(alias: string): string[] {
   );
   if (!values || values.some((value) => value === undefined)) {
     throw new Error(
-      `${alias} in ${relative(ROOT, SPEC)} must be a union of string literals`
+      `${alias} in ${repoPath(specPath)} must be a union of string literals`
     );
   }
   return values as string[];
@@ -355,7 +441,7 @@ function stringUnion(alias: string): string[] {
 // endregion
 
 const HEADER = [
-  `Generated by scripts/generate-native-contract.ts from ${relative(ROOT, SPEC)}.`,
+  `Generated by scripts/generate-native-contract.ts from ${repoPath(SPEC)}.`,
   'Do not edit: change the spec and run `yarn contract`.',
 ];
 
@@ -404,7 +490,7 @@ function kotlinEnum(model: EnumModel): string {
     `/** \`${model.key}\` values. */`,
     `internal enum class ${model.name}(val wireValue: String) {`,
   ];
-  if (model.default === undefined) {
+  if (model.direction === 'toJs') {
     lines.push(`${entries},`, '}');
   } else {
     lines.push(
@@ -618,7 +704,7 @@ function swiftEnum(model: EnumModel): string {
     `public enum ${name}: Int {`,
     ...model.values.map((value) => `  case ${value}`),
   ];
-  if (model.default !== undefined) {
+  if (model.direction === 'toNative') {
     lines.push(
       '',
       "  /// The spec's default.",
@@ -719,13 +805,13 @@ function cppEnumConversions(model: EnumModel): string {
       ...model.values.map(
         (v) => `  if (value == "${v}") {\n    return ${objcCase(v)};\n  }`
       ),
-      `  return ${objcCase(model.default!)};`,
+      `  return ${objcCase(model.direction === 'toNative' ? model.default : model.values[0]!)};`,
       '}',
     ].join('\n');
   }
   const cppCase = (v: string) => `${model.cpp}::${capitalize(v)}`;
   // Prop enums travel C++ → Swift; event enums Swift → C++.
-  return model.default !== undefined
+  return model.direction === 'toNative'
     ? [
         `inline ${swiftName} toObjC(${model.cpp} value) {`,
         '  switch (value) {',
@@ -847,8 +933,8 @@ function objcpp(contract: Contract): string {
     ...HEADER.map((line) => `// ${line}`),
     '//',
     '// Conversions between the C++ types React Native Codegen generates and the Swift types in',
-    '// RemoteComposeContract.swift. Every switch is exhaustive, so a value added to the spec fails',
-    '// the build until it is handled.',
+    '// RemoteComposeContract.swift. Enum switches list every case and the pod compiles with',
+    '// -Werror=switch, so a value added to the spec fails the build until it is handled.',
     '#pragma once',
     '',
     '#import <react/renderer/components/RemoteComposeViewSpec/EventEmitters.h>',
@@ -888,58 +974,59 @@ function objcpp(contract: Contract): string {
 
 // endregion
 
-const require = createRequire(import.meta.url);
-const { TypeScriptParser } =
-  require('@react-native/codegen/lib/parsers/typescript/parser') as {
-    TypeScriptParser: new () => {
-      parseFile(path: string): {
-        modules: Record<
-          string,
-          { components?: Record<string, ComponentSchema> }
-        >;
-      };
-    };
-  };
+/** The generated files for a Codegen spec, as [path, contents] pairs. */
+export function generate(specPath: string = SPEC): [string, string][] {
+  const schema = new TypeScriptParser().parseFile(specPath);
+  const components = Object.values(schema.modules).flatMap((module) =>
+    module.type === 'Component' ? Object.entries(module.components) : []
+  );
+  const [only, ...others] = components;
+  if (!only || others.length > 0) {
+    throw new Error(
+      `Expected one component in ${repoPath(specPath)}, found ${components.length}`
+    );
+  }
+  const contract = buildContract(only[0], only[1], specPath);
+  return [
+    [KOTLIN, kotlin(contract)],
+    [SWIFT, swift(contract)],
+    [CPP, objcpp(contract)],
+  ];
+}
 
-const schema = new TypeScriptParser().parseFile(SPEC);
-const components = Object.values(schema.modules).flatMap((module) =>
-  Object.entries(module.components ?? {})
-);
-if (components.length !== 1) {
-  throw new Error(
-    `Expected one component in ${SPEC}, found ${components.length}`
+/**
+ * Whether a committed file differs from what the generator writes. Line endings are ignored: a
+ * Windows checkout may have converted them to CRLF.
+ */
+export function isStale(
+  committed: string | undefined,
+  generated: string
+): boolean {
+  return (
+    committed === undefined || committed.replace(/\r\n/g, '\n') !== generated
   );
 }
-const [[componentName, component]] = components as [[string, ComponentSchema]];
-const contract = buildContract(componentName, component);
 
-const outputs: [string, string][] = [
-  [KOTLIN, kotlin(contract)],
-  [SWIFT, swift(contract)],
-  [CPP, objcpp(contract)],
-];
-
-if (process.argv.includes('--check')) {
-  const stale = outputs.filter(([path, text]) => {
-    try {
-      return readFileSync(path, 'utf8') !== text;
-    } catch {
-      return true;
-    }
-  });
-  if (stale.length > 0) {
-    console.error(
-      `The native contract is out of date with ${relative(ROOT, SPEC)}:\n` +
-        stale.map(([path]) => `  ${relative(ROOT, path)}`).join('\n') +
-        '\nRun `yarn contract` and commit the result.'
+if (import.meta.main) {
+  const outputs = generate();
+  if (process.argv.includes('--check')) {
+    const stale = outputs.filter(([path, text]) =>
+      isStale(existsSync(path) ? readFileSync(path, 'utf8') : undefined, text)
     );
-    process.exit(1);
-  }
-  console.log('native contract: up to date');
-} else {
-  for (const [path, text] of outputs) {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, text);
-    console.log(`wrote ${relative(ROOT, path)}`);
+    if (stale.length > 0) {
+      console.error(
+        `The native contract is out of date with ${repoPath(SPEC)}:\n` +
+          stale.map(([path]) => `  ${repoPath(path)}`).join('\n') +
+          '\nRun `yarn contract` and commit the result.'
+      );
+      process.exit(1);
+    }
+    console.log('native contract: up to date');
+  } else {
+    for (const [path, text] of outputs) {
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, text);
+      console.log(`wrote ${repoPath(path)}`);
+    }
   }
 }

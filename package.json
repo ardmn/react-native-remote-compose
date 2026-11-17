@@ -44,7 +44,8 @@
     "measure:size": "node scripts/measure-size.ts",
     "measure:perf": "node scripts/measure-perf.ts",
     "documents": "node scripts/convert-documents.ts",
-    "contract": "node scripts/generate-native-contract.ts"
+    "contract": "node scripts/generate-native-contract.ts",
+    "test:scripts": "node --test \"scripts/__tests__/*.test.ts\""
   },
   "keywords": [
     "react-native",
@@ -75,10 +76,12 @@
     "@react-native/eslint-config": "0.88.1",
     "@react-native/jest-preset": "0.88.1",
     "@testing-library/react-native": "14.1.0",
+    "@types/cross-spawn": "6.0.6",
     "@types/jest": "30.0.0",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@typescript/native": "npm:typescript@7.0.2",
+    "cross-spawn": "7.0.6",
     "del-cli": "8.0.1",
     "eslint": "9.39.5",
     "eslint-config-prettier": "10.1.8",

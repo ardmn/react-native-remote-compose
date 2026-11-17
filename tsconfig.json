@@ -38,7 +38,9 @@
       "jest",
       "node"
     ],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    // Scripts run with Node's type stripping, which cannot run enums or namespaces.
+    "erasableSyntaxOnly": true
   },
   "exclude": [
     "**/node_modules",

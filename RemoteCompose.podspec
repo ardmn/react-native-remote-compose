@@ -52,6 +52,9 @@ Pod::Spec.new do |s|
   s.exclude_files = "ios/Tests/**"
   s.private_header_files = "ios/**/*.h"
   s.swift_version = "5.10"
+  # The generated C++ conversions (ios/Contract) switch over every enum case: a case added to the
+  # spec and not handled must fail the build, not just warn.
+  s.compiler_flags = "-Werror=switch"
   s.pod_target_xcconfig = {
     "DEFINES_MODULE" => "YES",
     # Apple-silicon simulators and devices only: rc-players publishes no x86_64 slice.

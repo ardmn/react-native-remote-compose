@@ -6,26 +6,13 @@ import {
 } from 'react-native-remote-compose';
 import { pulseRc } from '../documents';
 import { Button, Mono, Row, Section, styles } from '../ui';
+import type { PerfPhase, PerfReport as Report } from '../perfReport';
 
 // Hermes provides the High Resolution Time API; React Native's types do not declare it.
 declare const performance: { now(): number };
 
 const PLAYERS = 12;
 const ANIMATE_MS = 3000;
-
-type Report = {
-  platform: string;
-  players: number;
-  jsFpsIdle: number;
-  jsMaxStallMsIdle: number;
-  mountToAllLoadedMs: number;
-  loadMs: { avg: number; max: number };
-  decodeMs: { avg: number; max: number };
-  jsMaxStallMsDuringMount: number;
-  jsFpsWhileAnimating: number;
-  jsMaxStallMsWhileAnimating: number;
-  namedValueUpdatesPerSec: number;
-};
 
 const stats = (values: number[]) => ({
   avg: Number(
@@ -98,14 +85,17 @@ export function PerformanceScreen({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
-          }).catch(() => undefined)
+          }).catch((error: unknown) => {
+            // The benchmark script waits for this; say why it will time out.
+            console.warn(`RC_PERF_POST_FAILED ${String(error)}`);
+          })
         : Promise.resolve(undefined),
     [reportUrl]
   );
   // A phase marker waits for the script's acknowledgement, so the frame statistics it resets
   // cover exactly the phase that follows.
   const phase = useCallback(
-    async (name: string) => {
+    async (name: PerfPhase) => {
       console.log(`RC_PERF_PHASE ${name}`);
       await post({ phase: name });
     },
@@ -127,6 +117,7 @@ export function PerformanceScreen({
     const jsMaxStallMsIdle = stopIdleMonitor();
 
     // 1. Mount PLAYERS documents at once.
+    await phase('mount');
     const stopMountMonitor = startStallMonitor();
     const mountStart = performance.now();
     const loadedPromise = new Promise<void>((resolve) => {

@@ -2,8 +2,8 @@
 // Do not edit: change the spec and run `yarn contract`.
 //
 // Conversions between the C++ types React Native Codegen generates and the Swift types in
-// RemoteComposeContract.swift. Every switch is exhaustive, so a value added to the spec fails
-// the build until it is handled.
+// RemoteComposeContract.swift. Enum switches list every case and the pod compiles with
+// -Werror=switch, so a value added to the spec fails the build until it is handled.
 #pragma once
 
 #import <react/renderer/components/RemoteComposeViewSpec/EventEmitters.h>
