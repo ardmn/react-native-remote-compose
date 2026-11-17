@@ -57,7 +57,7 @@ PODS:
   - React-Core (0.88.1):
     - React-Core-prebuilt
     - React-Core/Default (= 0.88.1)
-  - React-Core-prebuilt (0.88.0):
+  - React-Core-prebuilt (0.88.1):
     - ReactNativeDependencies
   - React-Core/CoreModulesHeaders (0.88.1):
     - React-Core-prebuilt
@@ -1812,7 +1812,7 @@ PODS:
     - React-perflogger (= 0.88.1)
     - React-utils (= 0.88.1)
     - ReactNativeDependencies
-  - ReactNativeDependencies (0.88.0)
+  - ReactNativeDependencies (0.88.1)
   - RemoteCompose (0.1.0):
     - hermes-engine
     - RCTRequired
@@ -2129,7 +2129,7 @@ SPEC CHECKSUMS:
   React-bridging: 48b96b1b423710103381dd90478513fff84456c4
   React-callinvoker: 8eb02682e7fc3ddc0e25a8d96eb5733c367436e8
   React-Core: 4cce9d3d50bd1544f33379cde3ae22175f6a1bcb
-  React-Core-prebuilt: 0fd2555a42f40e7770ced1c7dfc5ee1dbfe041cd
+  React-Core-prebuilt: dbd0bf94bbe1a1714bd4e27bc4f1bf33c02bb7b3
   React-CoreModules: c96f14c068269b233fcabc8add64963132a371a2
   React-cxxreact: 2956b35d64e2e5594607d359df31454a999acbed
   React-cxxstableapi: 7019410c5d74d0a60cae97b5a636cd42017370a3
@@ -2196,7 +2196,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 2dbb2d65f3a487b8a69449f5b1b12b44656d2204
   ReactCodegen: 3840312f5071bb6b953b35a029c5c6dcf06b435e
   ReactCommon: b63ce798b898ed77c6cfdeb80b18080161f52ed5
-  ReactNativeDependencies: d3b7423ba1e52525e42085c8470109abde583d2e
+  ReactNativeDependencies: a5164c3ebbe90d992022b5d9cbabbf770a6d7d05
   RemoteCompose: 7ae606dc4a2805e305f334a715624c3c314dc5c1
   SocketRocket: 37aec555668fb852ec12e3c0de59a86ca58f0871
   Yoga: d1c536142c5ff8ec8cd856ab2a7c227a1d875c8e

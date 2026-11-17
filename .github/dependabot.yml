@@ -1,32 +1,63 @@
-# Update PRs for every ecosystem in the repo. The cooldown matches .yarnrc.yml's npmMinimalAgeGate:
-# a release is proposed only after it has been public for a week.
+# One weekly pull request with every dependency update across all ecosystems, so CI runs once.
+# Cooldown matches .yarnrc.yml's npmMinimalAgeGate: a release is proposed only after a week.
 version: 2
+
+multi-ecosystem-groups:
+  all-dependencies:
+    schedule:
+      interval: weekly
+    labels: ["dependencies"]
+
 updates:
   - package-ecosystem: npm
     directory: /
-    schedule: { interval: weekly }
+    patterns: ["*"]
+    multi-ecosystem-group: all-dependencies
     cooldown: { default-days: 7 }
     versioning-strategy: increase
-    groups:
-      react-native:
-        patterns: ["react-native", "@react-native/*", "@react-native-community/*", "react", "@types/react"]
-      expo:
-        patterns: ["expo", "expo-*", "@expo/*"]
-      tooling:
-        patterns: ["*"]
+    ignore:
+      # Pinned by React Native / Expo, which ship and test an exact set: these move together
+      # with a React Native or Expo SDK upgrade, never on their own.
+      - dependency-name: "react"
+      - dependency-name: "react-test-renderer"
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-native"
+      - dependency-name: "@react-native/*"
+      - dependency-name: "@react-native-community/cli*"
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "react-native-safe-area-context"
+      # Majors React Native's toolchain does not support yet: @react-native/eslint-config accepts
+      # ESLint 8–9, @react-native/babel-preset needs Babel 7, and Node types follow the Node we run
+      # (.nvmrc, 24).
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@babel/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: gradle
-    directory: /android
-    schedule: { interval: weekly }
+    directories: ["/android", "/tools/remote-compose-json"]
+    patterns: ["*"]
+    multi-ecosystem-group: all-dependencies
     cooldown: { default-days: 7 }
-  - package-ecosystem: gradle
-    directory: /tools/remote-compose-json
-    schedule: { interval: weekly }
-    cooldown: { default-days: 7 }
+
   - package-ecosystem: bundler
     directory: /example
-    schedule: { interval: weekly }
+    patterns: ["*"]
+    multi-ecosystem-group: all-dependencies
     cooldown: { default-days: 7 }
+    ignore:
+      # cocoapods-core requires activesupport < 8 (see Gemfile and osv-scanner.toml).
+      - dependency-name: "activesupport"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: weekly }
+    patterns: ["*"]
+    multi-ecosystem-group: all-dependencies
     cooldown: { default-days: 7 }
