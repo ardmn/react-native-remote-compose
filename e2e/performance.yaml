@@ -1,0 +1,11 @@
+# Mounts 12 animated documents at once and records where the time goes (RC_PERF in the log).
+appId: ${APP_ID}
+name: Performance benchmark
+---
+- launchApp:
+    clearState: true
+- tapOn: "Performance"
+- tapOn: "Run"
+- extendedWaitUntil:
+    visible: ".*namedValueUpdatesPerSec.*"
+    timeout: 60000

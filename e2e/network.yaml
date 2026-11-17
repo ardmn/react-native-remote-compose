@@ -1,0 +1,14 @@
+# Remote documents load natively; a failing URL is reported with a clear message, not a crash.
+appId: ${APP_ID}
+name: Network documents and errors
+---
+- launchApp:
+    clearState: true
+- tapOn: "Network"
+- extendedWaitUntil:
+    visible: ".*bytes · fetch.*"
+    timeout: 30000
+- tapOn: "Broken URL (404)"
+- extendedWaitUntil:
+    visible: "error load: HTTP 404.*"
+    timeout: 30000

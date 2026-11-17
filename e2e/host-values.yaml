@@ -1,0 +1,48 @@
+# The host <-> document contract, end to end on a device:
+# a click in the document reaches JS (onAction), JS state flows back into the document
+# (named values), a long press is a different event than a click, and text edits land.
+appId: ${APP_ID}
+name: Host values round trip
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Double ristretto, steamed milk"   # rendered by the document, not by React
+    timeout: 20000
+- assertVisible: "Cart: 0"
+
+# Click (release) three times: every click reaches JS, and the document shows the count JS
+# hands back. Each click is checked before the next, so a lost or delayed click is caught.
+- tapOn: "Add to cart"
+- extendedWaitUntil: { visible: "Cart: 1", timeout: 15000 }
+- tapOn: "Add to cart"
+- extendedWaitUntil: { visible: "Cart: 2", timeout: 15000 }
+- tapOn: "Add to cart"
+- extendedWaitUntil: { visible: "Cart: 3", timeout: 15000 }
+- extendedWaitUntil: { visible: { text: "\\s*3" }, timeout: 15000 }
+
+# A long press is its own event and is not a click.
+- longPressOn: "Add to cart"
+- extendedWaitUntil: { visible: "Long press → show_details", timeout: 15000 }
+- scrollUntilVisible: { element: "Cart: 3", direction: DOWN }   # the details card pushed it down
+- assertNotVisible: "Cart: 4"
+- scrollUntilVisible: { element: "close", direction: UP }
+- tapOn: "close"
+
+# Resetting in JS resets the document.
+- tapOn: "reset cart"
+- extendedWaitUntil: { visible: "Cart: 0", timeout: 15000 }
+- extendedWaitUntil: { visible: { text: "\\s*0" }, timeout: 15000 }
+
+# A string named value: typed text appears in the document as well as in the input.
+- tapOn:
+    text: "Flat white"
+    index: 1          # the input below the document
+- eraseText: 20
+- inputText: "Mocha"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      text: "Mocha"
+      index: 1        # second occurrence = the document's title
+    timeout: 15000
