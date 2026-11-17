@@ -22,6 +22,10 @@ updates:
     directory: /tools/remote-compose-json
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }
+  - package-ecosystem: bundler
+    directory: /example
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

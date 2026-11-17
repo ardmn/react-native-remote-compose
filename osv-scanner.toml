@@ -13,3 +13,11 @@ id = "GHSA-g3hv-75wg-m249"
 ignoreUntil = 2027-02-17
 reason = """minimatch <11.0.1 (DoS via crafted glob pattern). Dev tooling only: ESLint, typescript-eslint
 and Expo CLI match patterns we write ourselves; never shipped in the library or the apps."""
+
+[[IgnoredVulns]]
+id = "GHSA-8474-xrp6-wh69"
+ignoreUntil = 2027-02-17
+reason = """activesupport < 8.0.5.2 (DoS via safe_constantize on attacker-controlled input). iOS build
+tooling only (example/Gemfile.lock, a CocoaPods dependency), run on developer machines and CI over
+our own Podfile; never shipped in the library or the apps. Not fixable today: every release of
+cocoapods-core (1.17.0 included) requires activesupport < 8, and Rails has no 7.x fix."""

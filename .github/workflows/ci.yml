@@ -55,6 +55,7 @@ jobs:
       scan-args: |-
         --config=osv-scanner.toml
         --lockfile=yarn.lock
+        --lockfile=example/Gemfile.lock
 
   native-tests:
     runs-on: ubuntu-latest
@@ -198,6 +199,8 @@ jobs:
 
       - name: Install cocoapods
         if: env.turbo_cache_hit != 1
+        env:
+          BUNDLE_FROZEN: 'true' # a Gemfile.lock that would change fails the build
         run: |
           cd example
           bundle install
