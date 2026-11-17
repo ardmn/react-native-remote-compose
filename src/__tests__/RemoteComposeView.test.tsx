@@ -89,11 +89,19 @@ describe('namedValues', () => {
     );
     expect(nativeProps().namedValues).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: 'rating', type: 'float', number: 0.5 }),
-        expect.objectContaining({ name: 'title', type: 'string', text: 'Hi' }),
+        expect.objectContaining({
+          name: 'rating',
+          valueType: 'float',
+          number: 0.5,
+        }),
+        expect.objectContaining({
+          name: 'title',
+          valueType: 'string',
+          text: 'Hi',
+        }),
         expect.objectContaining({
           name: 'enabled',
-          type: 'boolean',
+          valueType: 'boolean',
           number: 1,
         }),
       ])
@@ -110,9 +118,9 @@ describe('namedValues', () => {
     );
     const [accent] = nativeProps().namedValues as Array<{
       number: number;
-      type: string;
+      valueType: string;
     }>;
-    expect(accent!.type).toBe('color');
+    expect(accent!.valueType).toBe('color');
     expect(Uint32Array.of(accent!.number)[0]).toBe(0xff00897b);
   });
 
@@ -125,7 +133,7 @@ describe('namedValues', () => {
       />
     );
     expect(nativeProps().namedValues).toEqual([
-      expect.objectContaining({ name: 'tab', type: 'int', number: 2 }),
+      expect.objectContaining({ name: 'tab', valueType: 'int', number: 2 }),
     ]);
   });
 });

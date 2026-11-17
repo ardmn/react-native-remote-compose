@@ -5,42 +5,64 @@ import UIKit
 /// The UIKit side of `RemoteComposeView`: loads a document off the main thread and hosts
 /// rc-players' `RemoteComposePlayerViewController` (the Compose Multiplatform player).
 ///
-/// Props are staged by the Fabric component and applied together in `commit()`.
+/// **Threading.** The class is `@MainActor`, so the compiler confines all its state to the main
+/// thread. Loading runs in a detached task that touches no view state and hands its result back to
+/// the main actor, where a newer load (`generation`) discards an older one's result.
 @objc(RemoteComposeHostView)
 @MainActor
 public final class RemoteComposeHostView: UIView {
-  @objc public var onAction: (([String: Any]) -> Void)?
-  @objc public var onError: (([String: Any]) -> Void)?
-  @objc public var onLoad: (([String: Any]) -> Void)?
+  @objc public var onAction: ((RemoteComposeActionEvent) -> Void)?
+  @objc public var onError: ((RemoteComposeErrorEvent) -> Void)?
+  @objc public var onLoad: ((RemoteComposeLoadEvent) -> Void)?
 
-  private struct Request: Equatable {
-    var base64: String?
-    var uri: String?
-    var headers: [String] = []
-    var json: String?
+  /// The view's props, as one value: staged one setter at a time, applied together in `commit()`.
+  private struct Props: Equatable {
+    var documentBase64: String?
+    var documentUri: String?
+    var documentHeaders: [String] = []
+    var documentJson: String?
+    var namedValues: [HostValue] = []
+    var theme = RemoteComposeTheme.defaultValue
+    var lenient = false
 
-    var isEmpty: Bool {
-      (base64 ?? "").isEmpty && (uri ?? "").isEmpty && (json ?? "").isEmpty
+    /// The document to show, by the spec's priority: base64, then JSON, then uri; nil for none.
+    var source: DocumentSource? {
+      if let documentBase64, !documentBase64.isEmpty {
+        return .base64(documentBase64)
+      }
+      if let documentJson, !documentJson.isEmpty {
+        return .json(documentJson)
+      }
+      if let documentUri, !documentUri.isEmpty {
+        return .uri(documentUri, headers: documentHeaders)
+      }
+      return nil
+    }
+
+    var configuration: RemoteComposePlayerConfiguration {
+      RemoteComposePlayerConfiguration(
+        theme: theme.playerTheme,
+        compatibility: lenient ? .compatible : .strict,
+        background: .transparent
+      )
     }
   }
 
-  private struct HostValue: Equatable {
-    let name: String
-    let type: String
-    let text: String
-    let number: Double
+  /// A document that was loaded and handed to the player.
+  private struct Shown {
+    let data: Data
+    let configuration: RemoteComposePlayerConfiguration
   }
 
-  private var request = Request()
-  private var appliedRequest: Request?
-  private var values: [HostValue] = []
-  private var configuration = RemoteComposePlayerConfiguration(background: .transparent)
-  private var appliedConfiguration: RemoteComposePlayerConfiguration?
+  private var pendingProps = Props()
+  /// The props last applied; the shown (or loading) document was requested with them.
+  private var committedProps: Props?
+  private var shown: Shown?
 
   private let playerController = RemoteComposePlayerController()
   private var playerViewController: RemoteComposePlayerViewController?
-  private var documentData: Data?
   private var loadTask: Task<Void, Never>?
+  /// Incremented by every load, so a finished load can tell whether it is still the latest.
   private var generation = 0
 
   override public init(frame: CGRect) {
@@ -56,57 +78,44 @@ public final class RemoteComposeHostView: UIView {
   // MARK: - Props
 
   @objc public func setDocumentBase64(_ value: String?) {
-    request.base64 = value
+    pendingProps.documentBase64 = value
   }
 
   @objc public func setDocumentUri(_ value: String?) {
-    request.uri = value
+    pendingProps.documentUri = value
   }
 
   @objc public func setDocumentHeaders(_ value: [String]) {
-    request.headers = value
+    pendingProps.documentHeaders = value
   }
 
   @objc public func setDocumentJson(_ value: String?) {
-    request.json = value
+    pendingProps.documentJson = value
   }
 
-  @objc public func setTheme(_ value: String) {
-    configuration.theme =
-      switch value {
-      case "light": .light
-      case "dark": .dark
-      default: .system
-      }
+  @objc public func setNamedValues(_ value: [RemoteComposeNamedValue]) {
+    pendingProps.namedValues = value.map(HostValue.init)
+  }
+
+  @objc public func setTheme(_ value: RemoteComposeTheme) {
+    pendingProps.theme = value
   }
 
   @objc public func setLenient(_ value: Bool) {
-    configuration.compatibility = value ? .compatible : .strict
-  }
-
-  @objc public func setNamedValues(_ entries: [[String: Any]]) {
-    values = entries.map {
-      HostValue(
-        name: $0["name"] as? String ?? "",
-        type: $0["type"] as? String ?? "",
-        text: $0["text"] as? String ?? "",
-        number: ($0["number"] as? NSNumber)?.doubleValue ?? 0
-      )
-    }
+    pendingProps.lenient = value
   }
 
   @objc public func commit() {
-    if request != appliedRequest {
-      appliedRequest = request
-      appliedConfiguration = configuration
-      reload(request)
-    } else if configuration != appliedConfiguration {
-      appliedConfiguration = configuration
-      if let documentData {
-        install(documentData, loadMs: 0, byteLength: documentData.count)
-      }
+    let props = pendingProps
+    let previous = committedProps
+    committedProps = props
+    if props.source != previous?.source {
+      load(props)
+    } else if let shown, props.configuration != shown.configuration {
+      // Theme and compatibility are fixed when the player is built: rebuild it.
+      install(shown.data, configuration: props.configuration, loadMs: 0)
     } else {
-      applyNamedValues()
+      applyHostValues(props.namedValues)
     }
   }
 
@@ -114,109 +123,91 @@ public final class RemoteComposeHostView: UIView {
     loadTask?.cancel()
     generation += 1
     removePlayer()
-    request = Request()
-    appliedRequest = nil
-    appliedConfiguration = nil
-    values = []
-    documentData = nil
+    pendingProps = Props()
+    committedProps = nil
+    shown = nil
   }
 
   // MARK: - Loading
 
-  private func reload(_ request: Request) {
+  private func load(_ props: Props) {
     loadTask?.cancel()
     generation += 1
     let current = generation
-    guard !request.isEmpty else {
+    guard let source = props.source else {
       removePlayer()
-      documentData = nil
+      shown = nil
       return
     }
-    if let json = request.json, !json.isEmpty, (request.base64 ?? "").isEmpty {
-      emitError("unsupported", RemoteComposeJson.unsupportedMessage)
-      return
-    }
-    loadTask = Task.detached(priority: .userInitiated) { [request] in
+    loadTask = Task.detached(priority: .userInitiated) { [weak self] in
       let start = DispatchTime.now().uptimeNanoseconds
+      let result: Result<Data, Error>
       do {
-        let data = try await Self.load(request)
-        let loadMs = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
-        await MainActor.run { [weak self] in
-          guard let self, generation == current else { return }
-          documentData = data
-          install(data, loadMs: loadMs, byteLength: data.count)
-        }
+        result = try await .success(DocumentLoader.load(source))
       } catch is CancellationError {
         return
       } catch {
-        await MainActor.run { [weak self] in
-          guard let self, generation == current else { return }
-          emitError("load", error.localizedDescription)
-        }
+        result = .failure(error)
       }
+      let loadMs = Self.milliseconds(since: start)
+      await self?.finishLoad(result, generation: current, loadMs: loadMs)
     }
   }
 
-  private nonisolated static func load(_ request: Request) async throws -> Data {
-    if let base64 = request.base64, !base64.isEmpty {
-      guard let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters) else {
-        throw LoadError("Invalid base64 document")
-      }
-      return data
+  private func finishLoad(_ result: Result<Data, Error>, generation loaded: Int, loadMs: Double) {
+    guard loaded == generation, let props = committedProps else { return }
+    switch result {
+    case let .success(data):
+      install(data, configuration: props.configuration, loadMs: loadMs)
+    case let .failure(error as RemoteComposeJson.UnsupportedError):
+      emitError(.unsupported, error.localizedDescription)
+    case let .failure(error):
+      emitError(.load, error.localizedDescription)
     }
-    guard let uri = request.uri, let url = URL(string: uri) else {
-      throw LoadError("No document source")
-    }
-    if url.isFileURL {
-      return try Data(contentsOf: url)
-    }
-    var urlRequest = URLRequest(url: url, timeoutInterval: 15)
-    for item in stride(from: 0, to: request.headers.count - 1, by: 2) {
-      urlRequest.setValue(request.headers[item + 1], forHTTPHeaderField: request.headers[item])
-    }
-    let (data, response) = try await URLSession.shared.data(for: urlRequest)
-    if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
-      throw LoadError("HTTP \(http.statusCode) for \(uri)")
-    }
-    return data
   }
 
   /// Builds the player. On iOS the player decodes and validates inside its controller factory,
   /// which runs on the main thread; that cost is measured and reported as `decodeMs`.
-  private func install(_ data: Data, loadMs: Double, byteLength: Int) {
-    var failed = false
+  private func install(
+    _ data: Data, configuration: RemoteComposePlayerConfiguration, loadMs: Double
+  ) {
     let current = generation
+    var rejected = false
     let start = DispatchTime.now().uptimeNanoseconds
     let onEvent: (RemoteComposePlayerEvent) -> Void = { [weak self] event in
-      self?.dispatch(event)
+      guard let action = ActionEvents.make(event) else { return }
+      self?.onAction?(action)
     }
     let onError: (RemoteComposePlayerError) -> Void = { [weak self] error in
       guard let self, generation == current else { return }
-      failed = true
-      emitError("document", error.localizedDescription)
+      rejected = true
+      emitError(.document, error.localizedDescription)
     }
     if let player = playerViewController {
-      player.update(
-        data: data, configuration: configuration, onEvent: onEvent, onError: onError
-      )
+      player.update(data: data, configuration: configuration, onEvent: onEvent, onError: onError)
     } else {
-      let player = RemoteComposePlayerViewController(
-        data: data, controller: playerController, configuration: configuration,
-        onEvent: onEvent, onError: onError
+      attach(
+        RemoteComposePlayerViewController(
+          data: data, controller: playerController, configuration: configuration,
+          onEvent: onEvent, onError: onError
+        )
       )
-      attach(player)
     }
-    // Loading the controller's view builds the Compose content synchronously.
+    // Loading the controller's view builds the Compose content synchronously, so a document the
+    // player rejects has reported it by the time this returns.
     playerViewController?.loadViewIfNeeded()
-    let decodeMs = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
-    guard !failed else { return }
-    applyNamedValues()
-    onLoad?([
-      "byteLength": byteLength,
-      "loadMs": loadMs,
-      "decodeMs": decodeMs,
-      "namedValues": playerController.names.map { $0.hasPrefix("USER:") ? String($0.dropFirst(5)) : $0 },
-    ])
+    let decodeMs = Self.milliseconds(since: start)
+    shown = Shown(data: data, configuration: configuration)
+    guard !rejected else { return }
+    applyHostValues(committedProps?.namedValues ?? [])
+    onLoad?(
+      RemoteComposeLoadEvent(
+        byteLength: Int32(clamping: data.count),
+        loadMs: loadMs,
+        decodeMs: decodeMs,
+        namedValues: playerController.names.map(UserDomain.unqualify).sorted()
+      )
+    )
   }
 
   private func attach(_ player: RemoteComposePlayerViewController) {
@@ -224,12 +215,10 @@ public final class RemoteComposeHostView: UIView {
     player.view.frame = bounds
     player.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     player.view.backgroundColor = .clear
+    addSubview(player.view)
     if let parent = parentViewController {
       parent.addChild(player)
-      addSubview(player.view)
       player.didMove(toParent: parent)
-    } else {
-      addSubview(player.view)
     }
   }
 
@@ -251,88 +240,42 @@ public final class RemoteComposeHostView: UIView {
   }
 
   private var parentViewController: UIViewController? {
-    var responder: UIResponder? = self
-    while let next = responder?.next {
-      if let controller = next as? UIViewController {
-        return controller
-      }
-      responder = next
-    }
-    return nil
+    sequence(first: next, next: { $0?.next }).lazy.compactMap { $0 as? UIViewController }.first
   }
 
-  // MARK: - Named values and events
+  // MARK: - Named values and errors
 
-  /// iOS's player controller sets floats, strings and colours. Integers and booleans are written
-  /// as floats when the document declares a float, and reported otherwise.
-  private func applyNamedValues() {
+  /// Writes the host values the shown document declares and reports the ones whose declared type
+  /// they cannot drive. Undeclared names are skipped: one set of values can serve many documents.
+  private func applyHostValues(_ values: [HostValue]) {
     guard playerViewController != nil else { return }
     let declared = Set(playerController.names)
-    for value in values {
-      let qualified = value.name.contains(":") ? value.name : "USER:\(value.name)"
-      guard declared.contains(qualified) else { continue }
-      let accepted: Bool =
-        switch value.type {
-        case "string": playerController.setString(value.text, for: value.name)
-        case "color":
-          playerController.setColor(UInt32(truncatingIfNeeded: Int64(value.number)), for: value.name)
-        default: playerController.setFloat(Float(value.number), for: value.name)
-        }
-      if !accepted {
-        emitError(
-          "document",
-          "Named value '\(value.name)' (\(value.type)) does not match the document's type"
-            + (value.type == "int" || value.type == "boolean"
-              ? " (the iOS player sets float, string and color values only)" : "")
-        )
-      }
+    for value in values where declared.contains(UserDomain.qualify(value.name)) {
+      guard !value.apply(to: playerController) else { continue }
+      emitError(
+        .document,
+        "Named value '\(value.name)' (\(value.type.wireValue)) does not match the document's type"
+          + (value.type == .int || value.type == .boolean
+            ? " (the iOS player sets float, string and color values only)" : "")
+      )
     }
   }
 
-  private func dispatch(_ event: RemoteComposePlayerEvent) {
-    var payload: [String: Any] = [
-      "kind": "named", "actionId": 0, "name": "", "metadata": "", "valueType": "none",
-      "text": "", "number": 0.0, "numbers": [Double](),
-    ]
-    switch event {
-    case let .action(id):
-      payload["kind"] = "host"
-      payload["actionId"] = id
-    case let .actionWithMetadata(id, metadata):
-      payload["kind"] = "metadata"
-      payload["actionId"] = id
-      payload["metadata"] = metadata
-    case let .namedAction(name, value):
-      payload["name"] = name
-      switch value {
-      case .none, .unsupported: break
-      case let .float(number):
-        payload["valueType"] = "float"
-        payload["number"] = Double(number)
-      case let .integer(number):
-        payload["valueType"] = "int"
-        payload["number"] = Double(number)
-      case let .text(text):
-        payload["valueType"] = "string"
-        payload["text"] = text
-      case let .floatList(numbers):
-        payload["valueType"] = "floatList"
-        payload["numbers"] = numbers.map(Double.init)
-      }
-    default:
-      return
-    }
-    onAction?(payload)
+  private func emitError(_ code: RemoteComposeErrorCode, _ message: String) {
+    onError?(RemoteComposeErrorEvent(code: code, message: message))
   }
 
-  private func emitError(_ code: String, _ message: String) {
-    onError?(["code": code, "message": message])
+  private nonisolated static func milliseconds(since start: UInt64) -> Double {
+    Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
   }
+}
 
-  private struct LoadError: LocalizedError {
-    let errorDescription: String?
-    init(_ message: String) {
-      errorDescription = message
+private extension RemoteComposeTheme {
+  var playerTheme: RemoteComposePlayerTheme {
+    switch self {
+    case .system: .system
+    case .light: .light
+    case .dark: .dark
     }
   }
 }

@@ -2,6 +2,7 @@ import { Image, processColor } from 'react-native';
 import type {
   NativeActionEvent,
   NativeNamedValue,
+  NativeNamedValueType,
   NativeProps,
 } from './RemoteComposeViewNativeComponent';
 import type {
@@ -54,34 +55,49 @@ function colorToArgb(name: string, value: unknown): number {
   return processed;
 }
 
+/** A {@link NativeNamedValue} whose `valueType` the compiler checks against the spec's union. */
+type TypedNativeNamedValue = NativeNamedValue & {
+  valueType: NativeNamedValueType;
+};
+
 /** Maps the public `namedValues` record to the flat array Codegen can carry. */
 export function toNativeNamedValues(
   values: Readonly<Record<string, RemoteComposeNamedValue>> | undefined
-): NativeNamedValue[] {
+): TypedNativeNamedValue[] {
   if (!values) return [];
-  return Object.entries(values).map(([name, value]): NativeNamedValue => {
+  return Object.entries(values).map(([name, value]): TypedNativeNamedValue => {
     if (typeof value === 'number') {
-      return { name, type: 'float', text: '', number: value };
+      return { name, valueType: 'float', text: '', number: value };
     }
     if (typeof value === 'string') {
-      return { name, type: 'string', text: value, number: 0 };
+      return { name, valueType: 'string', text: value, number: 0 };
     }
     if (typeof value === 'boolean') {
-      return { name, type: 'boolean', text: '', number: value ? 1 : 0 };
+      return { name, valueType: 'boolean', text: '', number: value ? 1 : 0 };
     }
     switch (value.type) {
       case 'float':
-        return { name, type: 'float', text: '', number: value.value };
+        return { name, valueType: 'float', text: '', number: value.value };
       case 'int':
-        return { name, type: 'int', text: '', number: Math.trunc(value.value) };
+        return {
+          name,
+          valueType: 'int',
+          text: '',
+          number: Math.trunc(value.value),
+        };
       case 'boolean':
-        return { name, type: 'boolean', text: '', number: value.value ? 1 : 0 };
+        return {
+          name,
+          valueType: 'boolean',
+          text: '',
+          number: value.value ? 1 : 0,
+        };
       case 'string':
-        return { name, type: 'string', text: value.value, number: 0 };
+        return { name, valueType: 'string', text: value.value, number: 0 };
       case 'color':
         return {
           name,
-          type: 'color',
+          valueType: 'color',
           text: '',
           number: colorToArgb(name, value.value),
         };
@@ -102,20 +118,28 @@ export function fromNativeAction(
         actionId: event.actionId,
         metadata: event.metadata,
       };
-    default: {
-      const valueType = event.valueType as Extract<
-        RemoteComposeActionEvent,
-        { kind: 'named' }
-      >['valueType'];
-      const value =
-        valueType === 'string'
-          ? event.text
-          : valueType === 'float' || valueType === 'int'
-            ? event.number
-            : valueType === 'floatList'
-              ? event.numbers
-              : null;
-      return { kind: 'named', name: event.name, value, valueType };
-    }
+    case 'named':
+      return {
+        kind: 'named',
+        name: event.name,
+        value: namedActionValue(event),
+        valueType: event.valueType,
+      };
+  }
+}
+
+function namedActionValue(
+  event: NativeActionEvent
+): Extract<RemoteComposeActionEvent, { kind: 'named' }>['value'] {
+  switch (event.valueType) {
+    case 'none':
+      return null;
+    case 'float':
+    case 'int':
+      return event.number;
+    case 'string':
+      return event.text;
+    case 'floatList':
+      return event.numbers;
   }
 }

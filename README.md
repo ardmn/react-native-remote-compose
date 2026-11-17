@@ -218,11 +218,16 @@ was run on a device with no extra keep rules (no crashes, documents render).
 
 - **JS** maps props to a flat Codegen spec and events back to typed objects; it never touches
   document bytes.
+- **One contract.** `src/RemoteComposeViewNativeComponent.ts` is the only place prop, event and
+  value names are written. React Native Codegen generates the C++ structs from it; `yarn contract`
+  generates the Kotlin and Swift models (and their C++ conversions) Codegen does not, and CI fails
+  when they drift from the spec.
 - **Android** (Kotlin): `RemoteComposeView` (a `FrameLayout` hosting a `ComposeView`). Loading,
   JSON conversion, decoding and rc-players' support check run on background dispatchers; the main
   thread only swaps the decoded document into Compose state. Host values are matched against the
-  names and types the document declares; a mismatch is reported, never applied (the player would
-  throw).
+  names and types the document declares, with rc-players' own lookup; a mismatch is reported,
+  never applied (the player would throw). Network loads use React Native's OkHttp client, so the
+  app's network setup applies.
 - **iOS** (Swift; Objective-C++ only for the Fabric component glue that Codegen requires):
   `RemoteComposeHostView` loads bytes off the main thread and hosts rc-players'
   `RemoteComposePlayerViewController`; values go through its `RemoteComposePlayerController`.
@@ -237,7 +242,7 @@ tools/remote-compose-json/   JSON → .rc CLI (AndroidX parser + rc-players chec
 example/             bare React Native demo        example-expo/   Expo demo (CNG)
 example-shared/      screens and documents both demos use
 e2e/                 Maestro device flows
-scripts/             TypeScript tooling: measurements, document conversion (macOS, Linux, Windows)
+scripts/             TypeScript tooling: native contract, measurements, document conversion (macOS, Linux, Windows)
 ```
 
 ```sh
@@ -245,6 +250,7 @@ yarn                        # install (lockfile immutable in CI)
 yarn lint && yarn typecheck && yarn test
 yarn example android | ios  # bare demo;  cd example-expo && npx expo run:android | run:ios
 maestro test -e APP_ID=remotecompose.example e2e/host-values.yaml e2e/network.yaml
+yarn contract               # regenerate native models after changing the Codegen spec
 yarn documents              # regenerate demo .rc files from their JSON
 yarn measure:size           # what the library adds to an app (Android on any OS, iOS on macOS)
 yarn measure:perf android   # release-build performance (also: ios)
@@ -252,7 +258,8 @@ yarn measure:perf android   # release-build performance (also: ios)
 
 Tests describe behaviour, not implementation: the JS view contract and diagnostics (Jest +
 Testing Library), the Expo plugin's rules, converter output and demo-document integrity (Kotlin),
-host-value resolution (Android unit), and device E2E on bare and Expo apps (Maestro).
+host values, player events, props and bounded reads (Android unit), and device E2E on bare and
+Expo apps (Maestro).
 
 ### Supply chain
 

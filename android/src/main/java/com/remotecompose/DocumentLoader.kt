@@ -1,98 +1,121 @@
 package com.remotecompose
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.util.Base64
-import androidx.compose.remote.creation.json.RemoteComposeJsonParser
-import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
-import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import android.webkit.URLUtil
+import com.facebook.react.modules.network.OkHttpClientProvider
+import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+import java.io.InputStream
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Headers
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 
-/** Where a document comes from, as the view's props describe it. Exactly one is non-null. */
-internal data class DocumentRequest(
-    val base64: String?,
-    val uri: String?,
-    val headers: List<String>,
-    val json: String?
-) {
-    val isEmpty: Boolean
-        get() = base64.isNullOrEmpty() && uri.isNullOrEmpty() && json.isNullOrEmpty()
-}
-
-/** Turns a [DocumentRequest] into `.rc` bytes. Blocking: call from a background dispatcher. */
+/** Turns a [DocumentSource] into `.rc` bytes. Cancelling the caller cancels the read. */
 internal object DocumentLoader {
-    private const val TIMEOUT_MS = 15_000
-    private const val MAX_BYTES = 16 * 1024 * 1024
+    /** Larger documents are refused as soon as the limit is passed, not after reading them. */
+    const val MAX_DOCUMENT_BYTES = 16 * 1024 * 1024
+    private const val TIMEOUT_SECONDS = 15L
 
-    fun load(context: Context, request: DocumentRequest): ByteArray = when {
-        !request.base64.isNullOrEmpty() -> Base64.decode(request.base64, Base64.DEFAULT)
-        !request.json.isNullOrEmpty() -> convertJson(request.json)
-        !request.uri.isNullOrEmpty() -> loadUri(context, request.uri, request.headers)
-        else -> throw IllegalArgumentException("No document source")
+    /** Schemes Android's [ContentResolver] opens. */
+    private val CONTENT_RESOLVER_SCHEMES =
+        setOf(ContentResolver.SCHEME_FILE, ContentResolver.SCHEME_CONTENT, ContentResolver.SCHEME_ANDROID_RESOURCE)
+
+    /**
+     * React Native's shared client, so the app's network setup (its `OkHttpClientFactory`: proxies,
+     * certificate pinning, interceptors) applies to documents as it does to `fetch`.
+     */
+    private val httpClient: OkHttpClient by lazy {
+        OkHttpClientProvider.getOkHttpClient()
+            .newBuilder()
+            .callTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .build()
+    }
+
+    suspend fun load(context: Context, source: DocumentSource): ByteArray = when (source) {
+        is DocumentSource.Base64 -> Base64.decode(source.encoded, Base64.DEFAULT)
+        is DocumentSource.Json -> runInterruptible(Dispatchers.Default) { JsonDocuments.toRc(source.json) }
+        is DocumentSource.Uri -> loadUri(context, source)
+    }
+
+    private suspend fun loadUri(context: Context, source: DocumentSource.Uri): ByteArray {
+        val uri = Uri.parse(source.uri)
+        return when {
+            URLUtil.isNetworkUrl(source.uri) -> loadHttp(source)
+
+            uri.scheme in CONTENT_RESOLVER_SCHEMES -> runInterruptible(Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)?.use { it.readAtMost(MAX_DOCUMENT_BYTES) }
+                    ?: throw IOException("Cannot open ${source.uri}")
+            }
+
+            // Release builds hand bundled assets over as a bare resource name (res/raw).
+            uri.scheme == null -> runInterruptible(Dispatchers.IO) { loadRawResource(context, source.uri) }
+
+            else -> throw IllegalArgumentException("Unsupported uri scheme: ${source.uri}")
+        }
+    }
+
+    private suspend fun loadHttp(source: DocumentSource.Uri): ByteArray {
+        val request =
+            Request.Builder()
+                .url(source.uri)
+                .headers(Headers.headersOf(*source.headers.toTypedArray()))
+                .build()
+        val call = httpClient.newCall(request)
+        return suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(
+                object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        continuation.resumeWith(Result.failure(e))
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        continuation.resumeWith(runCatching { response.use { readBody(it, source.uri) } })
+                    }
+                }
+            )
+        }
+    }
+
+    private fun readBody(response: Response, uri: String): ByteArray {
+        if (!response.isSuccessful) throw IOException("HTTP ${response.code} for $uri")
+        val body = response.body ?: throw IOException("Empty response for $uri")
+        if (body.contentLength() > MAX_DOCUMENT_BYTES) throw DocumentTooLargeException(MAX_DOCUMENT_BYTES)
+        return body.byteStream().readAtMost(MAX_DOCUMENT_BYTES)
     }
 
     /**
-     * AndroidX authoring JSON → `.rc`, with AndroidX's own parser. The parser declares host values
-     * with bare names; they are moved into the `USER:` domain every player addresses (the same step
-     * tools/remote-compose-json applies), so iOS and Android documents stay byte-identical.
+     * React Native's own release asset lookup (`ResourceDrawableIdHelper`) resolves bundled files by
+     * name the same way; raw resources have no compile-time id for a name that arrives at runtime.
      */
-    fun convertJson(json: String): ByteArray {
-        val buffer = RemoteComposeJsonParser.parseToByteBuffer(json)
-        val bytes = ByteArray(buffer.remaining()).also { buffer.get(it) }
-        val document = RcDocumentCodec.decode(bytes)
-        return RcDocumentCodec.encode(
-            document.copy(
-                operations =
-                    document.operations.map { op ->
-                        if (op is RcNamedVariable && ':' !in op.name) op.copy(name = "USER:${op.name}") else op
-                    }
-            )
-        )
-    }
-
-    private fun loadUri(context: Context, uri: String, headers: List<String>): ByteArray {
-        val parsed = Uri.parse(uri)
-        return when (parsed.scheme?.lowercase()) {
-            "http", "https" -> loadHttp(uri, headers)
-
-            "file", "content", "android.resource" ->
-                context.contentResolver.openInputStream(parsed)?.use { it.readBounded() }
-                    ?: throw IOException("Cannot open $uri")
-
-            // Release builds hand bundled assets over as a bare resource name (res/raw).
-            null -> loadRawResource(context, uri)
-
-            else -> throw IllegalArgumentException("Unsupported uri scheme: $uri")
-        }
-    }
-
-    private fun loadHttp(uri: String, headers: List<String>): ByteArray {
-        val connection = URL(uri).openConnection() as HttpURLConnection
-        try {
-            connection.connectTimeout = TIMEOUT_MS
-            connection.readTimeout = TIMEOUT_MS
-            headers.chunked(2).forEach { pair ->
-                if (pair.size == 2) connection.setRequestProperty(pair[0], pair[1])
-            }
-            val code = connection.responseCode
-            if (code !in 200..299) throw IOException("HTTP $code for $uri")
-            return connection.inputStream.use { it.readBounded() }
-        } finally {
-            connection.disconnect()
-        }
-    }
-
     private fun loadRawResource(context: Context, name: String): ByteArray {
+        @Suppress("DiscouragedApi")
         val id = context.resources.getIdentifier(name, "raw", context.packageName)
         if (id == 0) throw IOException("No bundled asset named $name")
-        return context.resources.openRawResource(id).use { it.readBounded() }
+        return context.resources.openRawResource(id).use { it.readAtMost(MAX_DOCUMENT_BYTES) }
     }
+}
 
-    private fun java.io.InputStream.readBounded(): ByteArray {
-        val bytes = readBytes()
-        if (bytes.size > MAX_BYTES) throw IOException("Document larger than $MAX_BYTES bytes")
-        return bytes
+internal class DocumentTooLargeException(limit: Int) : IOException("Document larger than $limit bytes")
+
+/** Reads the stream to the end, failing as soon as it passes [limit] bytes. */
+internal fun InputStream.readAtMost(limit: Int): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) return output.toByteArray()
+        if (output.size() + count > limit) throw DocumentTooLargeException(limit)
+        output.write(buffer, 0, count)
     }
 }

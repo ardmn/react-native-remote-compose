@@ -9,4 +9,10 @@ public final class RemoteComposeJson: NSObject {
   @objc public static let unsupportedMessage =
     "JSON to .rc conversion is available on Android only. Convert on the server or at build time "
       + "(tools/remote-compose-json) and pass the .rc as uri or base64."
+
+  struct UnsupportedError: LocalizedError {
+    var errorDescription: String? {
+      RemoteComposeJson.unsupportedMessage
+    }
+  }
 }

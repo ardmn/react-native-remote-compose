@@ -1,4 +1,9 @@
 import type { ColorValue, NativeSyntheticEvent, ViewProps } from 'react-native';
+import type {
+  NativeActionEvent,
+  NativeErrorEvent,
+  NativeProps,
+} from './RemoteComposeViewNativeComponent';
 
 /**
  * Where the `.rc` document comes from. Exactly one of the shapes.
@@ -39,7 +44,7 @@ export type RemoteComposeActionEvent =
       kind: 'named';
       name: string;
       value: null | number | string | readonly number[];
-      valueType: 'none' | 'float' | 'int' | 'string' | 'floatList';
+      valueType: NativeActionEvent['valueType'];
     };
 
 export type RemoteComposeErrorEvent = {
@@ -50,7 +55,7 @@ export type RemoteComposeErrorEvent = {
    * - `unsupported`: the feature is not available on this platform (`{ json }` on iOS).
    * - `props`: the props passed to the view are invalid (reported from JS, nothing is loaded).
    */
-  code: 'load' | 'document' | 'unsupported' | 'props';
+  code: NativeErrorEvent['code'] | 'props';
   message: string;
 };
 
@@ -64,7 +69,7 @@ export type RemoteComposeLoadEvent = {
   namedValues: readonly string[];
 };
 
-export type RemoteComposeTheme = 'system' | 'light' | 'dark';
+export type RemoteComposeTheme = NonNullable<NativeProps['theme']>;
 
 export type RemoteComposeViewProps = ViewProps & {
   source: RemoteComposeSource;

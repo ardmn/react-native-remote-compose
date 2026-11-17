@@ -4,11 +4,14 @@ import android.util.Base64
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.annotations.ReactModule
+import com.remotecompose.contract.ErrorCode
 import java.util.concurrent.Executors
 
 /** JSON → `.rc` with AndroidX's `RemoteComposeJsonParser`, on a background thread. */
 @ReactModule(name = RemoteComposeModule.NAME)
 class RemoteComposeModule(reactContext: ReactApplicationContext) : NativeRemoteComposeModuleSpec(reactContext) {
+    private val executor = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, THREAD_NAME) }
+
     override fun getName(): String = NAME
 
     override fun isJsonConversionSupported(): Boolean = true
@@ -16,9 +19,10 @@ class RemoteComposeModule(reactContext: ReactApplicationContext) : NativeRemoteC
     override fun convertJsonToRc(json: String, promise: Promise) {
         executor.execute {
             try {
-                promise.resolve(Base64.encodeToString(DocumentLoader.convertJson(json), Base64.NO_WRAP))
+                promise.resolve(Base64.encodeToString(JsonDocuments.toRc(json), Base64.NO_WRAP))
             } catch (e: Exception) {
-                promise.reject("E_JSON", e.message ?: e.toString(), e)
+                // A conversion failure is a `load` failure, as the view reports it for `{ json }`.
+                promise.reject(ErrorCode.LOAD.wireValue, e.message ?: e.toString(), e)
             }
         }
     }
@@ -28,9 +32,8 @@ class RemoteComposeModule(reactContext: ReactApplicationContext) : NativeRemoteC
         super.invalidate()
     }
 
-    private val executor = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "RemoteComposeJson") }
-
     companion object {
         const val NAME = "RemoteComposeModule"
+        private const val THREAD_NAME = "RemoteComposeJson"
     }
 }

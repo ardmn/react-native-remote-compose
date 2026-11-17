@@ -1,82 +1,57 @@
 package com.remotecompose
 
-import android.os.SystemClock
 import android.util.Log
 import android.widget.FrameLayout
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.annotation.MainThread
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.ReadableArray
-import com.facebook.react.bridge.WritableMap
+import com.facebook.react.bridge.UiThreadUtil
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.UIManagerHelper
+import com.remotecompose.contract.ContractEvent
+import com.remotecompose.contract.ErrorCode
+import com.remotecompose.contract.ErrorEvent
+import com.remotecompose.contract.Theme
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
-import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader
-import ee.schimke.composeai.rcplayer.compose.composeSupportReport
-import ee.schimke.composeai.rcplayer.protocol.RcDocument
-import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
-import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
-import ee.schimke.composeai.rcplayer.runtime.RcDocumentCapabilities
-import ee.schimke.composeai.rcplayer.runtime.RcHostActionValue
-import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * A React Native host view around rc-players' [RcComposePlayer].
  *
- * Props arrive one setter at a time and are applied together in [commitProps] (called from the
- * view manager's `onAfterUpdateTransaction`), so a source change and its named values land in one
- * step. Loading, JSON conversion, decoding and validation run on [Dispatchers.Default]/[Dispatchers.IO];
- * the main thread only swaps the decoded document into Compose state.
+ * **Threading.** React Native calls the prop setters, [commitProps] and [destroy] on the main
+ * thread (asserted). Loading runs in [scope], whose dispatcher is the main thread: only the I/O and
+ * decoding inside [prepareDocument] leave it, and they touch no view state. All mutable state below
+ * is therefore confined to the main thread, and a newer load cancels the older one before it can
+ * apply a stale result.
  */
 class RemoteComposeView(private val reactContext: ThemedReactContext) : FrameLayout(reactContext) {
-    private class Loaded(val document: RcDocument, val capabilities: RcDocumentCapabilities)
-
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val typefaces = RcTypefaceLoader.Default
+    private val content = PlayerContent(typefaces)
+
+    /** Props as the view manager sets them, one at a time; applied together in [commitProps]. */
+    private var pendingProps = RemoteComposeProps()
+
+    /** The props last applied; the shown (or loading) document was requested with them. */
+    private var committedProps: RemoteComposeProps? = null
+
     private var loadJob: Job? = null
 
-    // Pending props, applied in commitProps().
-    private var request = DocumentRequest(null, null, emptyList(), null)
-    private var requestedValues: List<HostValue> = emptyList()
-    private var lenient = false
-    private var appliedRequest: DocumentRequest? = null
-    private var appliedLenient = false
-
-    // Compose state.
-    private var loaded by mutableStateOf<Loaded?>(null)
-    private var theme by mutableStateOf(RcPlayerTheme.System)
-    private val namedValues = mutableStateMapOf<String, RcNamedValue>()
-
-    private val typefaces: RcTypefaceLoader = RcTypefaceLoader.Default
+    /** Set while a measure-and-layout pass is posted, so a burst of requests posts one. */
+    private var layoutPosted = false
 
     private val composeView =
         ComposeView(reactContext).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-            setContent {
-                val current = loaded ?: return@setContent
-                RcComposePlayer(
-                    document = current.document,
-                    modifier = Modifier.fillMaxSize(),
-                    theme = theme,
-                    namedValues = namedValues,
-                    onEvent = ::dispatchPlayerEvent,
-                    typefaces = typefaces
-                )
-            }
+            setContent { content.Content(onEvent = ::onPlayerEvent) }
         }
 
     init {
@@ -85,235 +60,118 @@ class RemoteComposeView(private val reactContext: ThemedReactContext) : FrameLay
 
     // region props
 
-    fun setDocumentBase64(value: String?) {
-        request = request.copy(base64 = value)
+    internal fun setDocumentBase64(value: String?) = stage { copy(documentBase64 = value) }
+
+    internal fun setDocumentUri(value: String?) = stage { copy(documentUri = value) }
+
+    internal fun setDocumentHeaders(value: List<String>) = stage { copy(documentHeaders = value) }
+
+    internal fun setDocumentJson(value: String?) = stage { copy(documentJson = value) }
+
+    internal fun setNamedValues(value: List<HostValue>) = stage { copy(namedValues = value) }
+
+    internal fun setTheme(value: Theme) = stage { copy(theme = value) }
+
+    internal fun setLenient(value: Boolean) = stage { copy(lenient = value) }
+
+    @MainThread
+    private inline fun stage(change: RemoteComposeProps.() -> RemoteComposeProps) {
+        UiThreadUtil.assertOnUiThread()
+        pendingProps = pendingProps.change()
     }
 
-    fun setDocumentUri(value: String?) {
-        request = request.copy(uri = value)
-    }
-
-    fun setDocumentHeaders(value: ReadableArray?) {
-        request = request.copy(headers = value?.toArrayList()?.map { it.toString() }.orEmpty())
-    }
-
-    fun setDocumentJson(value: String?) {
-        request = request.copy(json = value)
-    }
-
-    fun setTheme(value: String?) {
-        theme =
-            when (value) {
-                "light" -> RcPlayerTheme.Light
-                "dark" -> RcPlayerTheme.Dark
-                else -> RcPlayerTheme.System
-            }
-    }
-
-    fun setLenient(value: Boolean) {
-        lenient = value
-    }
-
-    fun setNamedValues(value: ReadableArray?) {
-        requestedValues = parseHostValues(value)
-    }
-
-    fun commitProps() {
-        if (request != appliedRequest || lenient != appliedLenient) {
-            appliedRequest = request
-            appliedLenient = lenient
-            reload(request, lenient)
+    @MainThread
+    internal fun commitProps() {
+        UiThreadUtil.assertOnUiThread()
+        val props = pendingProps
+        val previous = committedProps
+        committedProps = props
+        content.setTheme(props.theme)
+        if (previous == null || props.source != previous.source || props.lenient != previous.lenient) {
+            load(props)
         } else {
-            applyNamedValues()
+            reportMismatches(content.setHostValues(props.namedValues))
         }
     }
 
     // endregion
 
-    private fun reload(request: DocumentRequest, lenient: Boolean) {
+    @MainThread
+    private fun load(props: RemoteComposeProps) {
         loadJob?.cancel()
-        if (request.isEmpty) {
-            loaded = null
+        val source = props.source
+        if (source == null) {
+            content.show(null)
             return
         }
         val context = reactContext.applicationContext
         loadJob =
             scope.launch {
-                val result = runCatching {
-                    val loadStart = SystemClock.elapsedRealtimeNanos()
-                    val bytes = withContext(Dispatchers.IO) { DocumentLoader.load(context, request) }
-                    val decodeStart = SystemClock.elapsedRealtimeNanos()
-                    val prepared =
-                        withContext(Dispatchers.Default) {
-                            try {
-                                val document = RcDocumentCodec.decode(bytes)
-                                document
-                                    .composeSupportReport(availableFontFamilies = typefaces.families)
-                                    .requireRenderable(lenient)
-                                Loaded(document, RcDocumentCapabilities.of(document))
-                            } catch (e: Exception) {
-                                throw DocumentException(e.message ?: "Document is not playable", e)
-                            }
-                        }
-                    val end = SystemClock.elapsedRealtimeNanos()
-                    Triple(prepared, bytes.size, (decodeStart - loadStart) to (end - decodeStart))
-                }
-                result
-                    .onSuccess { (prepared, size, timings) ->
-                        namedValues.clear()
-                        loaded = prepared
-                        applyNamedValues()
-                        emit(RemoteComposeEvent.LOAD, loadPayload(prepared, size, timings))
+                val prepared =
+                    try {
+                        prepareDocument(context, source, props.lenient, typefaces)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: RemoteComposeException) {
+                        Log.w(TAG, "Remote Compose document failed", e)
+                        content.show(null)
+                        emit(ErrorEvent(code = e.code, message = e.message.orEmpty()))
+                        return@launch
                     }
-                    .onFailure { error ->
-                        if (error is kotlinx.coroutines.CancellationException) return@onFailure
-                        Log.w(TAG, "Remote Compose document failed", error)
-                        loaded = null
-                        val code = if (error is DocumentException) "document" else "load"
-                        emit(
-                            RemoteComposeEvent.ERROR,
-                            RemoteComposeEvent.error(code, error.message ?: error.toString())
-                        )
-                    }
+                content.show(prepared)
+                // The latest values: they may have changed while the document loaded.
+                reportMismatches(content.setHostValues(committedProps?.namedValues.orEmpty()))
+                emit(prepared.loadEvent())
             }
     }
 
-    /**
-     * Writes the host values the current document declares with a matching type. The player throws
-     * on a declared name written with the wrong type, so mismatches are reported, never applied.
-     */
-    private fun applyNamedValues() {
-        val capabilities = loaded?.capabilities ?: return
-        val resolution = resolveHostValues(requestedValues, capabilities.namedValues)
-        resolution.mismatches.forEach { value ->
+    private fun reportMismatches(mismatches: List<HostValue>) {
+        for (value in mismatches) {
             emit(
-                RemoteComposeEvent.ERROR,
-                RemoteComposeEvent.error(
-                    "document",
-                    "Named value '${value.name}' (${value.type}) does not match the document's type"
+                ErrorEvent(
+                    code = ErrorCode.DOCUMENT,
+                    message = "Named value '${value.name}' (${value.type.wireValue}) does not match the document's type"
                 )
             )
         }
-        namedValues.keys.retainAll(resolution.values.keys)
-        for ((name, value) in resolution.values) if (namedValues[name] != value) namedValues[name] = value
     }
 
-    private fun dispatchPlayerEvent(event: RcPlayerEvent) {
-        val payload =
-            Arguments.createMap().apply {
-                putString("kind", "named")
-                putInt("actionId", 0)
-                putString("name", "")
-                putString("metadata", "")
-                putString("valueType", "none")
-                putString("text", "")
-                putDouble("number", 0.0)
-                putArray("numbers", Arguments.createArray())
-            }
-        when (event) {
-            is RcPlayerEvent.HostAction -> {
-                payload.putString("kind", "host")
-                payload.putInt("actionId", event.actionId)
-            }
-
-            is RcPlayerEvent.HostActionMetadata -> {
-                payload.putString("kind", "metadata")
-                payload.putInt("actionId", event.actionId)
-                payload.putString("metadata", event.metadata)
-            }
-
-            is RcPlayerEvent.HostNamedAction -> {
-                payload.putString("name", event.name)
-                when (val value = event.value) {
-                    RcHostActionValue.None -> Unit
-
-                    is RcHostActionValue.FloatValue -> {
-                        payload.putString("valueType", "float")
-                        payload.putDouble("number", value.value.toDouble())
-                    }
-
-                    is RcHostActionValue.IntegerValue -> {
-                        payload.putString("valueType", "int")
-                        payload.putDouble("number", value.value.toDouble())
-                    }
-
-                    is RcHostActionValue.TextValue -> {
-                        payload.putString("valueType", "string")
-                        payload.putString("text", value.value)
-                    }
-
-                    is RcHostActionValue.FloatListValue -> {
-                        payload.putString("valueType", "floatList")
-                        payload.putArray(
-                            "numbers",
-                            Arguments.createArray().apply { value.value.forEach { pushDouble(it.toDouble()) } }
-                        )
-                    }
-                }
-            }
-
-            is RcPlayerEvent.DebugMessage -> {
-                Log.d(TAG, "${event.message} ${event.value}")
-                return
-            }
-        }
-        emit(RemoteComposeEvent.ACTION, payload)
+    private fun onPlayerEvent(event: RcPlayerEvent) {
+        if (event is RcPlayerEvent.DebugMessage) Log.d(TAG, "${event.message} ${event.value}")
+        event.toActionEvent()?.let(::emit)
     }
 
-    private fun loadPayload(prepared: Loaded, size: Int, timings: Pair<Long, Long>): WritableMap =
-        Arguments.createMap().apply {
-            putInt("byteLength", size)
-            putDouble("loadMs", timings.first / 1_000_000.0)
-            putDouble("decodeMs", timings.second / 1_000_000.0)
-            putArray(
-                "namedValues",
-                Arguments.createArray().apply {
-                    prepared.capabilities.namedValues.keys.sorted().forEach { pushString(it.removePrefix("USER:")) }
-                }
-            )
-        }
-
-    private fun emit(name: String, payload: WritableMap) {
+    private fun emit(event: ContractEvent) {
         val surfaceId = UIManagerHelper.getSurfaceId(this)
-        UIManagerHelper.getEventDispatcherForReactTag(reactContext, id)
-            ?.dispatchEvent(RemoteComposeEvent(surfaceId, id, name, payload))
+        UIManagerHelper.getEventDispatcher(reactContext)?.dispatchEvent(RemoteComposeEvent(surfaceId, id, event))
     }
 
-    // React Native lays children out itself and ignores requestLayout() from views it did not
-    // create, so the ComposeView would keep a stale size. Measure and lay it out on request.
-    private val measureAndLayout = Runnable {
-        measure(
-            MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
-        )
-        layout(left, top, right, bottom)
-    }
-
+    /**
+     * React Native lays children out itself and ignores `requestLayout()` from views it did not
+     * create, so the ComposeView would keep a stale size: measure and lay it out on request.
+     * Called from the superclass constructor, before this class's properties are initialized; the
+     * flag is then `false` (its JVM default), which is the right state.
+     */
     override fun requestLayout() {
         super.requestLayout()
-        @Suppress("SENSELESS_COMPARISON") // called from the super constructor before init
-        if (measureAndLayout != null) post(measureAndLayout)
+        if (layoutPosted) return
+        layoutPosted = true
+        post {
+            layoutPosted = false
+            measure(
+                MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
+            )
+            layout(left, top, right, bottom)
+        }
     }
 
-    fun destroy() {
+    @MainThread
+    internal fun destroy() {
+        UiThreadUtil.assertOnUiThread()
         scope.cancel()
         composeView.disposeComposition()
     }
-
-    private fun parseHostValues(array: ReadableArray?): List<HostValue> {
-        if (array == null) return emptyList()
-        return (0 until array.size()).mapNotNull { index ->
-            val map = array.getMap(index) ?: return@mapNotNull null
-            HostValue(
-                name = map.getString("name").orEmpty(),
-                type = map.getString("type").orEmpty(),
-                text = map.getString("text").orEmpty(),
-                number = if (map.hasKey("number")) map.getDouble("number") else 0.0
-            )
-        }
-    }
-
-    private class DocumentException(message: String, cause: Throwable) : Exception(message, cause)
 
     private companion object {
         const val TAG = "RemoteComposeView"

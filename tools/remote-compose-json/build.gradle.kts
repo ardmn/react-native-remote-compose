@@ -5,6 +5,17 @@ plugins {
 
 kotlin { jvmToolchain(17) }
 
+// The library's JSON conversion is plain JVM code: compile the same files here, so the CLI and the
+// on-device converter cannot drift apart.
+sourceSets.main {
+    kotlin.srcDir("../../android/src/main/java")
+    kotlin.include(
+        "com/remotecompose/JsonDocuments.kt",
+        "com/remotecompose/UserDomain.kt",
+        "com/remotecompose/tools/**"
+    )
+}
+
 dependencies {
     // AndroidX's own authoring-JSON parser; on the JVM it needs org.json, which Android bundles.
     implementation("androidx.compose.remote:remote-creation-core:1.0.0-alpha23")
