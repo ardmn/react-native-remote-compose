@@ -24,5 +24,9 @@ export const networkDocuments = [
   },
   { label: 'Title card', uri: `${FIXTURES}/TitleCardRemote-640x480.rc` },
   { label: 'Demo tile', uri: `${FIXTURES}/demo-tile.rc` },
-  { label: 'Broken URL (404)', uri: `${FIXTURES}/does-not-exist.rc` },
+  {
+    label: 'Error demo: 404',
+    uri: `${FIXTURES}/does-not-exist.rc`,
+    note: 'Intentional: shows how a load failure is reported (console + onError), not a crash.',
+  },
 ] as const;

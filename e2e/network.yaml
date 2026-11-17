@@ -8,7 +8,7 @@ name: Network documents and errors
 - extendedWaitUntil:
     visible: ".*bytes · fetch.*"
     timeout: 30000
-- tapOn: "Broken URL (404)"
+- tapOn: "Error demo: 404"
 - extendedWaitUntil:
     visible: "error load: HTTP 404.*"
     timeout: 30000

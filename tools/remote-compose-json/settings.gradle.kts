@@ -1,8 +1,8 @@
 rootProject.name = "remote-compose-json"
 
 dependencyResolutionManagement {
-  repositories {
-    google()
-    mavenCentral()
-  }
+    repositories {
+        google()
+        mavenCentral()
+    }
 }

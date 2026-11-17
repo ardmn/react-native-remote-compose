@@ -29,6 +29,7 @@ export function NetworkScreen() {
           onError={(e) => setStatus(`error ${e.code}: ${e.message}`)}
         />
         <Mono>{status}</Mono>
+        {'note' in doc ? <Mono>{doc.note}</Mono> : null}
       </Section>
       <Section title="Documents">
         <Row>
