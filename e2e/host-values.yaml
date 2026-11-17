@@ -4,11 +4,7 @@
 appId: ${APP_ID}
 name: Host values round trip
 ---
-- launchApp:
-    clearState: true
-- extendedWaitUntil:
-    visible: "Double ristretto, steamed milk"   # rendered by the document, not by React
-    timeout: 20000
+- runFlow: subflows/launch.yaml
 - assertVisible: "Cart: 0"
 
 # Click (release) three times: every click reaches JS, and the document shows the count JS

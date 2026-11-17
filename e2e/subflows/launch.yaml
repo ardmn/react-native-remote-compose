@@ -1,0 +1,32 @@
+# Fresh launch. An Expo development build is started by its deep link to Metro
+# (exp+<slug>://expo-development-client/?url=...&disableOnboarding=1, passed as DEV_CLIENT_URL);
+# a bare app is started directly.
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      true: ${typeof DEV_CLIENT_URL === 'undefined' || DEV_CLIENT_URL === ''}
+    commands:
+      - launchApp:
+          clearState: true
+          permissions: { all: allow }
+- runFlow:
+    when:
+      true: ${typeof DEV_CLIENT_URL !== 'undefined' && DEV_CLIENT_URL !== ''}
+    commands:
+      # Clearing state also revokes Android 17's ACCESS_LOCAL_NETWORK, without which a dev build
+      # cannot reach Metro; grant it again, let the launcher settle, then point it at Metro.
+      - launchApp:
+          clearState: true
+          permissions: { all: allow }
+      - waitForAnimationToEnd
+      - openLink: ${DEV_CLIENT_URL}
+      - tapOn:
+          text: "Continue"     # Expo's one-time developer-menu intro
+          optional: true
+      - tapOn:
+          text: "Close"        # the developer menu, if it opened anyway
+          optional: true
+- extendedWaitUntil:
+    visible: "Double ristretto, steamed milk"   # rendered by the document, not by React
+    timeout: 60000

@@ -2,8 +2,7 @@
 appId: ${APP_ID}
 name: Network documents and errors
 ---
-- launchApp:
-    clearState: true
+- runFlow: subflows/launch.yaml
 - tapOn: "Network"
 - extendedWaitUntil:
     visible: ".*bytes · fetch.*"

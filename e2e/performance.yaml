@@ -2,8 +2,7 @@
 appId: ${APP_ID}
 name: Performance benchmark
 ---
-- launchApp:
-    clearState: true
+- runFlow: subflows/launch.yaml
 - tapOn: "Performance"
 - tapOn: "Run"
 - extendedWaitUntil:
