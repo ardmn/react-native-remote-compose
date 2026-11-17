@@ -39,15 +39,5 @@ target 'RemoteComposeExample' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
-
-    # React Native's spm_dependency builds RemoteCompose straight into the shared products dir and
-    # rewrites the app's references to its module map, but not those of the pod's test spec.
-    test_xcconfigs = File.join(installer.sandbox.target_support_files_root, 'RemoteCompose', '*.unit-tests.*.xcconfig')
-    Dir.glob(test_xcconfigs).each do |path|
-      text = File.read(path)
-      fixed = text.gsub('${PODS_CONFIGURATION_BUILD_DIR}/RemoteCompose/RemoteCompose.modulemap',
-                        '${PODS_CONFIGURATION_BUILD_DIR}/RemoteCompose.modulemap')
-      File.write(path, fixed) unless fixed == text
-    end
   end
 end

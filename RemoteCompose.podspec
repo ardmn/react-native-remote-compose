@@ -7,6 +7,35 @@ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 # own `spm_dependency` helper wires that package into the Pods project.
 rc_players_version = "3.8.0"
 
+# React Native 0.87+ builds a static pod that has an `spm_dependency` into the shared products dir
+# (facebook/react-native#57602) and rewrites the app's `-fmodule-map-file` flags to match, but not
+# the pod's test-spec xcconfigs, so the `Tests` target looks for a module map that is never made.
+# Same approach as @rnmapbox/maps and PostHog (posthog-js#5606): extend React Native's rewrite and
+# let it run first. It changes nothing when no app enables the test spec, and before React Native
+# 0.87 the method does not exist and nothing is patched.
+module RemoteComposeTestSpecModuleMaps
+  def rewrite_aggregate_modulemap_references(installer, pod_names)
+    super
+    installer.pod_targets.each do |pod|
+      next unless pod_names.include?(pod.label) && pod.pod_name == "RemoteCompose"
+
+      module_name = pod.product_module_name
+      Dir.glob(File.join(pod.support_files_dir, "*.unit-tests.*.xcconfig")).each do |path|
+        text = File.read(path)
+        fixed = text.gsub("${PODS_CONFIGURATION_BUILD_DIR}/#{pod.label}/#{module_name}.modulemap",
+                          "${PODS_CONFIGURATION_BUILD_DIR}/#{module_name}.modulemap")
+        File.write(path, fixed) unless fixed == text
+      end
+    end
+  end
+end
+
+if defined?(::SPMManager) &&
+   ::SPMManager.private_method_defined?(:rewrite_aggregate_modulemap_references) &&
+   !(::SPMManager < RemoteComposeTestSpecModuleMaps)
+  ::SPMManager.prepend(RemoteComposeTestSpecModuleMaps)
+end
+
 Pod::Spec.new do |s|
   s.name         = "RemoteCompose"
   s.version      = package["version"]
