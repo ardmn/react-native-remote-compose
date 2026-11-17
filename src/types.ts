@@ -48,8 +48,9 @@ export type RemoteComposeErrorEvent = {
    * - `document`: the player rejected the document (malformed, operations it cannot draw,
    *   a named value of the wrong type).
    * - `unsupported`: the feature is not available on this platform (`{ json }` on iOS).
+   * - `props`: the props passed to the view are invalid (reported from JS, nothing is loaded).
    */
-  code: 'load' | 'document' | 'unsupported';
+  code: 'load' | 'document' | 'unsupported' | 'props';
   message: string;
 };
 

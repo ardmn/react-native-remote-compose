@@ -4,7 +4,8 @@
     "height": 220,
     "contentDescription": "Product card",
     "apiLevel": 8,
-    "densityBehavior": 2
+    "densityBehavior": 2,
+    "profiles": 513
   },
   "root": {
     "global": [
@@ -29,6 +30,12 @@
               "rating": {
                 "value": 0.8,
                 "export": true
+              }
+            },
+            {
+              "pressed": {
+                "value": 0,
+                "export": false
               }
             }
           ]
@@ -144,6 +151,22 @@
                           ]
                         },
                         {
+                          "graphicsLayer": {
+                            "scaleX": {
+                              "value": "1 - 0.05 * @pressed",
+                              "anim": 0.12
+                            },
+                            "scaleY": {
+                              "value": "1 - 0.05 * @pressed",
+                              "anim": 0.12
+                            },
+                            "alpha": {
+                              "value": "1 - 0.18 * @pressed",
+                              "anim": 0.12
+                            }
+                          }
+                        },
+                        {
                           "clip": {
                             "roundRect": 22
                           }
@@ -152,9 +175,39 @@
                           "background": "$colors.accent"
                         },
                         {
+                          "onTouchDown": {
+                            "type": "valueFloatChange",
+                            "target": "@pressed",
+                            "value": 1
+                          }
+                        },
+                        {
+                          "onTouchUp": {
+                            "type": "valueFloatChange",
+                            "target": "@pressed",
+                            "value": 0
+                          }
+                        },
+                        {
+                          "onTouchCancel": {
+                            "type": "valueFloatChange",
+                            "target": "@pressed",
+                            "value": 0
+                          }
+                        },
+                        {
                           "onClick": {
                             "type": "hostAction",
                             "name": "add_to_cart"
+                          }
+                        },
+                        {
+                          "multiClick": {
+                            "clickType": 1,
+                            "actions": {
+                              "type": "hostAction",
+                              "name": "show_details"
+                            }
                           }
                         }
                       ],

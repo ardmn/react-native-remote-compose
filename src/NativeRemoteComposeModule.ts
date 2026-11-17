@@ -7,4 +7,4 @@ export interface Spec extends TurboModule {
   convertJsonToRc(json: string): Promise<string>;
 }
 
-export default TurboModuleRegistry.getEnforcing<Spec>('RemoteComposeModule');
+export default TurboModuleRegistry.get<Spec>('RemoteComposeModule');

@@ -10,14 +10,15 @@ const pkg = require('../package.json');
 
 /**
  * Lowest versions the native side needs:
- * - Kotlin 2.3: rc-players is compiled with Kotlin 2.4, which a 2.2 compiler cannot read.
- * - iOS 15.1: the rc-players Swift overlay and XCFramework floor used by the podspec.
+ * - Kotlin 2.3: rc-players is compiled with Kotlin 2.4; a 2.2 compiler cannot read its metadata
+ *   ("can read versions up to 2.3.0"), and React Native's default is 2.2.
+ * - iOS 15.1: the podspec's floor.
  */
 const MIN_KOTLIN = '2.3.21';
 const MIN_IOS = '15.1';
 
-/** @param {string | undefined} a @param {string} b */
-function isLower(a, b) {
+/** Numeric dotted-version comparison; a missing version counts as lower than anything. */
+function isLower(/** @type {string | undefined} */ a, /** @type {string} */ b) {
   if (!a) return true;
   const pa = a.split(/[.-]/).map((n) => parseInt(n, 10) || 0);
   const pb = b.split(/[.-]/).map((n) => parseInt(n, 10) || 0);
@@ -28,6 +29,54 @@ function isLower(a, b) {
 }
 
 /**
+ * @typedef {{ type: 'property', key: string, value: string } | { type: 'comment', value: string } | { type: 'empty' }} GradleProperty
+ */
+
+/**
+ * Sets `android.kotlinVersion` when absent (Expo then falls back to React Native's Kotlin 2.2)
+ * and raises it when lower than `min`; a newer version is left alone.
+ * @param {GradleProperty[]} properties
+ * @param {string} min
+ * @returns {GradleProperty[]}
+ */
+function applyKotlinVersion(properties, min) {
+  const index = properties.findIndex(
+    (p) => p.type === 'property' && p.key === 'android.kotlinVersion'
+  );
+  if (index === -1)
+    return [
+      ...properties,
+      { type: 'property', key: 'android.kotlinVersion', value: min },
+    ];
+  const entry = properties[index];
+  if (entry && entry.type === 'property' && isLower(entry.value, min)) {
+    const next = [...properties];
+    next[index] = { ...entry, value: min };
+    return next;
+  }
+  return properties;
+}
+
+/**
+ * Raises an explicitly configured iOS deployment target that is below `min`. When none is set,
+ * Expo's template default (16.4 in SDK 58) applies, which is above the floor: never lower it.
+ * @param {Record<string, unknown>} podfileProperties
+ * @param {string} min
+ */
+function applyIosDeploymentTarget(podfileProperties, min) {
+  const current = podfileProperties['ios.deploymentTarget'];
+  if (typeof current === 'string' && isLower(current, min)) {
+    return { ...podfileProperties, 'ios.deploymentTarget': min };
+  }
+  return podfileProperties;
+}
+
+/** Lets Compose drive ProMotion displays at full rate; the player warns without it. */
+function applyInfoPlist(/** @type {Record<string, unknown>} */ plist) {
+  return { ...plist, CADisableMinimumFrameDurationOnPhone: true };
+}
+
+/**
  * @typedef {{ kotlinVersion?: string; iosDeploymentTarget?: string }} Options
  * @type {import('expo/config-plugins').ConfigPlugin<Options | void>}
  */
@@ -35,42 +84,27 @@ const withRemoteCompose = (config, options) => {
   const kotlinVersion = options?.kotlinVersion ?? MIN_KOTLIN;
   const iosTarget = options?.iosDeploymentTarget ?? MIN_IOS;
 
-  // iOS: let Compose drive ProMotion displays at full rate (the player warns without it).
   config = withInfoPlist(config, (c) => {
-    c.modResults.CADisableMinimumFrameDurationOnPhone = true;
+    c.modResults = /** @type {any} */ (applyInfoPlist(c.modResults));
     return c;
   });
-
-  // Raise an explicitly configured target that is too low. When none is set, Expo's template
-  // default (16.4 in SDK 58) applies, which is already above the floor: never lower it.
   config = withPodfileProperties(config, (c) => {
-    const current = c.modResults['ios.deploymentTarget'];
-    if (typeof current === 'string' && isLower(current, iosTarget)) {
-      c.modResults['ios.deploymentTarget'] = iosTarget;
-    }
-    return c;
-  });
-
-  // Android: without `android.kotlinVersion` Expo falls back to React Native's Kotlin (2.2),
-  // which cannot read rc-players' metadata, so set it when absent and raise it when too old.
-  config = withGradleProperties(config, (c) => {
-    const entry = c.modResults.find(
-      (item) => item.type === 'property' && item.key === 'android.kotlinVersion'
+    c.modResults = /** @type {any} */ (
+      applyIosDeploymentTarget(c.modResults, iosTarget)
     );
-    if (entry && entry.type === 'property') {
-      if (isLower(entry.value, kotlinVersion)) entry.value = kotlinVersion;
-    } else {
-      c.modResults.push({
-        type: 'property',
-        key: 'android.kotlinVersion',
-        value: kotlinVersion,
-      });
-    }
     return c;
   });
-
+  config = withGradleProperties(config, (c) => {
+    c.modResults = /** @type {any} */ (
+      applyKotlinVersion(c.modResults, kotlinVersion)
+    );
+    return c;
+  });
   return config;
 };
 
 module.exports = createRunOncePlugin(withRemoteCompose, pkg.name, pkg.version);
-module.exports.isLower = isLower;
+module.exports.applyKotlinVersion = applyKotlinVersion;
+module.exports.applyIosDeploymentTarget = applyIosDeploymentTarget;
+module.exports.applyInfoPlist = applyInfoPlist;
+module.exports.MIN_KOTLIN = MIN_KOTLIN;

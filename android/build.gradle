@@ -63,4 +63,6 @@ dependencies {
   implementation "org.jetbrains.compose.foundation:foundation:${getExtOrDefault('composeMultiplatformVersion')}"
   // AndroidX's authoring-JSON parser (RemoteComposeJsonParser), for `{ json }` sources.
   implementation "androidx.compose.remote:remote-creation-core:${getExtOrDefault('androidxRemoteVersion')}"
+
+  testImplementation "junit:junit:4.13.2"
 }

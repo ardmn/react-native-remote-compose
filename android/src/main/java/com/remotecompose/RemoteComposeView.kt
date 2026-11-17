@@ -115,7 +115,7 @@ class RemoteComposeView(private val reactContext: ThemedReactContext) : FrameLay
     }
 
     fun setNamedValues(value: ReadableArray?) {
-        requestedValues = HostValue.parse(value)
+        requestedValues = parseHostValues(value)
     }
 
     fun commitProps() {
@@ -184,31 +184,18 @@ class RemoteComposeView(private val reactContext: ThemedReactContext) : FrameLay
      */
     private fun applyNamedValues() {
         val capabilities = loaded?.capabilities ?: return
-        val wanted = HashMap<String, RcNamedValue>()
-        for (value in requestedValues) {
-            // As AndroidX's player: a bare host name addresses `USER:name` first, then `name` itself.
-            val qualified =
-                when {
-                    ':' in value.name -> value.name
-                    "USER:${value.name}" in capabilities.namedValues -> "USER:${value.name}"
-                    else -> value.name
-                }
-            val type = capabilities.namedValues[qualified] ?: continue
-            val converted = value.toRcValue(type)
-            if (converted == null) {
-                emit(
-                    RemoteComposeEvent.ERROR,
-                    RemoteComposeEvent.error(
-                        "document",
-                        "Named value '${value.name}' (${value.type}) does not match the document's type"
-                    )
+        val resolution = resolveHostValues(requestedValues, capabilities.namedValues)
+        resolution.mismatches.forEach { value ->
+            emit(
+                RemoteComposeEvent.ERROR,
+                RemoteComposeEvent.error(
+                    "document",
+                    "Named value '${value.name}' (${value.type}) does not match the document's type"
                 )
-                continue
-            }
-            wanted[qualified] = converted
+            )
         }
-        namedValues.keys.retainAll(wanted.keys)
-        for ((name, value) in wanted) if (namedValues[name] != value) namedValues[name] = value
+        namedValues.keys.retainAll(resolution.values.keys)
+        for ((name, value) in resolution.values) if (namedValues[name] != value) namedValues[name] = value
     }
 
     private fun dispatchPlayerEvent(event: RcPlayerEvent) {
@@ -313,42 +300,16 @@ class RemoteComposeView(private val reactContext: ThemedReactContext) : FrameLay
         composeView.disposeComposition()
     }
 
-    /** One host value from JS, before it is checked against the document's declared type. */
-    internal data class HostValue(val name: String, val type: String, val text: String, val number: Double) {
-        fun toRcValue(declared: Int): RcNamedValue? = when {
-            type == "string" && declared == RcNamedVariable.STRING_TYPE -> RcNamedValue.Text(text)
-
-            type == "float" && declared == RcNamedVariable.FLOAT_TYPE -> RcNamedValue.FloatValue(number.toFloat())
-
-            // A JS number is a float by default; let it drive an integer variable too.
-            (type == "float" || type == "int") && declared == RcNamedVariable.INT_TYPE ->
-                RcNamedValue.Integer(number.toInt())
-
-            type == "int" && declared == RcNamedVariable.FLOAT_TYPE -> RcNamedValue.FloatValue(number.toFloat())
-
-            (type == "float" || type == "int") && declared == RcNamedVariable.LONG_TYPE ->
-                RcNamedValue.LongValue(number.toLong())
-
-            type == "boolean" && declared == RcNamedVariable.INT_TYPE -> RcNamedValue.BooleanValue(number != 0.0)
-
-            type == "color" && declared == RcNamedVariable.COLOR_TYPE -> RcNamedValue.Color(number.toLong().toInt())
-
-            else -> null
-        }
-
-        companion object {
-            fun parse(array: ReadableArray?): List<HostValue> {
-                if (array == null) return emptyList()
-                return (0 until array.size()).mapNotNull { index ->
-                    val map = array.getMap(index) ?: return@mapNotNull null
-                    HostValue(
-                        name = map.getString("name").orEmpty(),
-                        type = map.getString("type").orEmpty(),
-                        text = map.getString("text").orEmpty(),
-                        number = if (map.hasKey("number")) map.getDouble("number") else 0.0
-                    )
-                }
-            }
+    private fun parseHostValues(array: ReadableArray?): List<HostValue> {
+        if (array == null) return emptyList()
+        return (0 until array.size()).mapNotNull { index ->
+            val map = array.getMap(index) ?: return@mapNotNull null
+            HostValue(
+                name = map.getString("name").orEmpty(),
+                type = map.getString("type").orEmpty(),
+                text = map.getString("text").orEmpty(),
+                number = if (map.hasKey("number")) map.getDouble("number") else 0.0
+            )
         }
     }
 

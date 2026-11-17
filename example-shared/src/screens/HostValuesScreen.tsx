@@ -21,6 +21,7 @@ export function HostValuesScreen() {
   const [count, setCount] = useState(0);
   const [events, setEvents] = useState<string[]>([]);
   const [loaded, setLoaded] = useState<RemoteComposeLoadEvent | null>(null);
+  const [details, setDetails] = useState(false);
 
   const namedValues = useMemo(
     () => ({
@@ -34,9 +35,9 @@ export function HostValuesScreen() {
 
   const onAction = (event: RemoteComposeActionEvent) => {
     setEvents((list) => [JSON.stringify(event), ...list].slice(0, 5));
-    if (event.kind === 'named' && event.name === 'add_to_cart') {
-      setCount((c) => c + 1);
-    }
+    if (event.kind !== 'named') return;
+    if (event.name === 'add_to_cart') setCount((c) => c + 1);
+    if (event.name === 'show_details') setDetails(true);
   };
 
   return (
@@ -54,6 +55,12 @@ export function HostValuesScreen() {
           }
         />
       </Section>
+      {details ? (
+        <Section title="Long press → show_details">
+          <Text>{title}: details opened by a long press in the document.</Text>
+          <Button label="close" onPress={() => setDetails(false)} />
+        </Section>
+      ) : null}
       <Section title="Host values → document">
         <TextInput style={styles.input} value={title} onChangeText={setTitle} />
         <Row>
@@ -81,7 +88,7 @@ export function HostValuesScreen() {
       <Section title="Document → host (onAction)">
         <Text>Cart: {count}</Text>
         {events.length === 0 ? (
-          <Mono>Tap “Add to cart” in the document</Mono>
+          <Mono>Tap “Add to cart” (click) or hold it (long press)</Mono>
         ) : null}
         {events.map((line, i) => (
           <Mono key={i}>{line}</Mono>
