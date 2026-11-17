@@ -2,7 +2,9 @@
   "header": {
     "width": 360,
     "height": 220,
-    "contentDescription": "Product card"
+    "contentDescription": "Product card",
+    "apiLevel": 8,
+    "densityBehavior": 2
   },
   "root": {
     "global": [
@@ -182,7 +184,7 @@
                     "text": {
                       "textFromFloat": {
                         "value": "@count",
-                        "before": 3,
+                        "whole": 3,
                         "decimal": 0
                       },
                       "fontSize": 18,
