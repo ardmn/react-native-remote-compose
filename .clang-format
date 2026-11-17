@@ -1,0 +1,10 @@
+# Objective-C++ glue (Fabric component + TurboModule stub). Logic lives in Swift.
+BasedOnStyle: Google
+Language: ObjC
+ColumnLimit: 110
+IndentWidth: 2
+ObjCBlockIndentWidth: 2
+---
+Language: Cpp
+BasedOnStyle: Google
+ColumnLimit: 110

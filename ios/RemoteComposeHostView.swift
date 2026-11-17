@@ -43,22 +43,33 @@ public final class RemoteComposeHostView: UIView {
   private var loadTask: Task<Void, Never>?
   private var generation = 0
 
-  public override init(frame: CGRect) {
+  override public init(frame: CGRect) {
     super.init(frame: frame)
     backgroundColor = .clear
   }
 
   @available(*, unavailable)
-  required init?(coder: NSCoder) {
+  required init?(coder _: NSCoder) {
     fatalError("init(coder:) is not supported")
   }
 
   // MARK: - Props
 
-  @objc public func setDocumentBase64(_ value: String?) { request.base64 = value }
-  @objc public func setDocumentUri(_ value: String?) { request.uri = value }
-  @objc public func setDocumentHeaders(_ value: [String]) { request.headers = value }
-  @objc public func setDocumentJson(_ value: String?) { request.json = value }
+  @objc public func setDocumentBase64(_ value: String?) {
+    request.base64 = value
+  }
+
+  @objc public func setDocumentUri(_ value: String?) {
+    request.uri = value
+  }
+
+  @objc public func setDocumentHeaders(_ value: [String]) {
+    request.headers = value
+  }
+
+  @objc public func setDocumentJson(_ value: String?) {
+    request.json = value
+  }
 
   @objc public func setTheme(_ value: String) {
     configuration.theme =
@@ -79,7 +90,8 @@ public final class RemoteComposeHostView: UIView {
         name: $0["name"] as? String ?? "",
         type: $0["type"] as? String ?? "",
         text: $0["text"] as? String ?? "",
-        number: ($0["number"] as? NSNumber)?.doubleValue ?? 0)
+        number: ($0["number"] as? NSNumber)?.doubleValue ?? 0
+      )
     }
   }
 
@@ -90,7 +102,9 @@ public final class RemoteComposeHostView: UIView {
       reload(request)
     } else if configuration != appliedConfiguration {
       appliedConfiguration = configuration
-      if let documentData { install(documentData, loadMs: 0, byteLength: documentData.count) }
+      if let documentData {
+        install(documentData, loadMs: 0, byteLength: documentData.count)
+      }
     } else {
       applyNamedValues()
     }
@@ -122,7 +136,8 @@ public final class RemoteComposeHostView: UIView {
       emitError(
         "unsupported",
         "JSON documents are converted on Android only. Convert on the server or at build time "
-          + "(tools/remote-compose-json) and pass the .rc as uri or base64.")
+          + "(tools/remote-compose-json) and pass the .rc as uri or base64."
+      )
       return
     }
     loadTask = Task.detached(priority: .userInitiated) { [request] in
@@ -131,16 +146,16 @@ public final class RemoteComposeHostView: UIView {
         let data = try await Self.load(request)
         let loadMs = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
         await MainActor.run { [weak self] in
-          guard let self, self.generation == current else { return }
-          self.documentData = data
-          self.install(data, loadMs: loadMs, byteLength: data.count)
+          guard let self, generation == current else { return }
+          documentData = data
+          install(data, loadMs: loadMs, byteLength: data.count)
         }
       } catch is CancellationError {
         return
       } catch {
         await MainActor.run { [weak self] in
-          guard let self, self.generation == current else { return }
-          self.emitError("load", error.localizedDescription)
+          guard let self, generation == current else { return }
+          emitError("load", error.localizedDescription)
         }
       }
     }
@@ -160,11 +175,11 @@ public final class RemoteComposeHostView: UIView {
       return try Data(contentsOf: url)
     }
     var urlRequest = URLRequest(url: url, timeoutInterval: 15)
-    stride(from: 0, to: request.headers.count - 1, by: 2).forEach {
-      urlRequest.setValue(request.headers[$0 + 1], forHTTPHeaderField: request.headers[$0])
+    for item in stride(from: 0, to: request.headers.count - 1, by: 2) {
+      urlRequest.setValue(request.headers[item + 1], forHTTPHeaderField: request.headers[item])
     }
     let (data, response) = try await URLSession.shared.data(for: urlRequest)
-    if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+    if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
       throw LoadError("HTTP \(http.statusCode) for \(uri)")
     }
     return data
@@ -180,17 +195,19 @@ public final class RemoteComposeHostView: UIView {
       self?.dispatch(event)
     }
     let onError: (RemoteComposePlayerError) -> Void = { [weak self] error in
-      guard let self, self.generation == current else { return }
+      guard let self, generation == current else { return }
       failed = true
-      self.emitError("document", error.localizedDescription)
+      emitError("document", error.localizedDescription)
     }
     if let player = playerViewController {
       player.update(
-        data: data, configuration: configuration, onEvent: onEvent, onError: onError)
+        data: data, configuration: configuration, onEvent: onEvent, onError: onError
+      )
     } else {
       let player = RemoteComposePlayerViewController(
         data: data, controller: playerController, configuration: configuration,
-        onEvent: onEvent, onError: onError)
+        onEvent: onEvent, onError: onError
+      )
       attach(player)
     }
     // Loading the controller's view builds the Compose content synchronously.
@@ -228,7 +245,7 @@ public final class RemoteComposeHostView: UIView {
     playerViewController = nil
   }
 
-  public override func didMoveToWindow() {
+  override public func didMoveToWindow() {
     super.didMoveToWindow()
     // Re-parent the controller once the view is in a hierarchy, so it gets lifecycle callbacks.
     guard let player = playerViewController, player.parent == nil, let parent = parentViewController
@@ -240,7 +257,9 @@ public final class RemoteComposeHostView: UIView {
   private var parentViewController: UIViewController? {
     var responder: UIResponder? = self
     while let next = responder?.next {
-      if let controller = next as? UIViewController { return controller }
+      if let controller = next as? UIViewController {
+        return controller
+      }
       responder = next
     }
     return nil
@@ -268,7 +287,8 @@ public final class RemoteComposeHostView: UIView {
           "document",
           "Named value '\(value.name)' (\(value.type)) does not match the document's type"
             + (value.type == "int" || value.type == "boolean"
-              ? " (the iOS player sets float, string and color values only)" : ""))
+              ? " (the iOS player sets float, string and color values only)" : "")
+        )
       }
     }
   }
@@ -279,27 +299,27 @@ public final class RemoteComposeHostView: UIView {
       "text": "", "number": 0.0, "numbers": [Double](),
     ]
     switch event {
-    case .action(let id):
+    case let .action(id):
       payload["kind"] = "host"
       payload["actionId"] = id
-    case .actionWithMetadata(let id, let metadata):
+    case let .actionWithMetadata(id, metadata):
       payload["kind"] = "metadata"
       payload["actionId"] = id
       payload["metadata"] = metadata
-    case .namedAction(let name, let value):
+    case let .namedAction(name, value):
       payload["name"] = name
       switch value {
       case .none, .unsupported: break
-      case .float(let number):
+      case let .float(number):
         payload["valueType"] = "float"
         payload["number"] = Double(number)
-      case .integer(let number):
+      case let .integer(number):
         payload["valueType"] = "int"
         payload["number"] = Double(number)
-      case .text(let text):
+      case let .text(text):
         payload["valueType"] = "string"
         payload["text"] = text
-      case .floatList(let numbers):
+      case let .floatList(numbers):
         payload["valueType"] = "floatList"
         payload["numbers"] = numbers.map(Double.init)
       }
@@ -315,6 +335,8 @@ public final class RemoteComposeHostView: UIView {
 
   private struct LoadError: LocalizedError {
     let errorDescription: String?
-    init(_ message: String) { errorDescription = message }
+    init(_ message: String) {
+      errorDescription = message
+    }
   }
 }

@@ -23,7 +23,11 @@ runs:
 
     - name: Install dependencies
       if: steps.yarn-cache.outputs.cache-hit != 'true'
+      # --immutable: a lockfile that would change fails the build.
+      # Hardened mode: every lockfile entry is checked against the registry (lockfile poisoning).
       run: yarn install --immutable
+      env:
+        YARN_ENABLE_HARDENED_MODE: '1'
       shell: bash
 
     - name: Cache dependencies

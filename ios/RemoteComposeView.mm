@@ -13,8 +13,7 @@
 
 using namespace facebook::react;
 
-static NSString *RCNSString(const std::string &value)
-{
+static NSString *RCNSString(const std::string &value) {
   return [NSString stringWithUTF8String:value.c_str()] ?: @"";
 }
 
@@ -25,13 +24,11 @@ static NSString *RCNSString(const std::string &value)
   RemoteComposeHostView *_host;
 }
 
-+ (ComponentDescriptorProvider)componentDescriptorProvider
-{
++ (ComponentDescriptorProvider)componentDescriptorProvider {
   return concreteComponentDescriptorProvider<RemoteComposeViewComponentDescriptor>();
 }
 
-- (instancetype)initWithFrame:(CGRect)frame
-{
+- (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const RemoteComposeViewProps>();
     _props = defaultProps;
@@ -40,8 +37,7 @@ static NSString *RCNSString(const std::string &value)
   return self;
 }
 
-- (void)createHost
-{
+- (void)createHost {
   _host = [[RemoteComposeHostView alloc] initWithFrame:self.bounds];
   __weak RemoteComposeView *weakSelf = self;
 
@@ -100,8 +96,7 @@ static NSString *RCNSString(const std::string &value)
   self.contentView = _host;
 }
 
-- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
-{
+- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps {
   const auto &newProps = *std::static_pointer_cast<RemoteComposeViewProps const>(props);
 
   [_host setDocumentBase64:newProps.documentBase64.empty() ? nil : RCNSString(newProps.documentBase64)];
@@ -132,8 +127,7 @@ static NSString *RCNSString(const std::string &value)
   [_host commit];
 }
 
-- (void)prepareForRecycle
-{
+- (void)prepareForRecycle {
   [super prepareForRecycle];
   [_host prepareForRecycle];
 }

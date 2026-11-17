@@ -1,0 +1,7 @@
+--swiftversion 5.10
+--indent 2
+--maxwidth 110
+--wraparguments before-first
+--wrapcollections before-first
+--self remove
+--exclude example,example-expo,node_modules,lib

@@ -1,0 +1,15 @@
+# Known vulnerabilities reviewed and accepted, each with a reason and an expiry date after which
+# the scanner reports it again. Anything not listed fails CI.
+
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-02-17
+reason = """glob <14.0.2 (AbortSignal timeout bypass during traversal). Dev tooling only: pulled in by
+Jest (@jest/reporters, jest-config) to find test files in this repository; never shipped in the
+library or the apps. Upgrading needs Jest to move to glob 14."""
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-17
+reason = """minimatch <11.0.1 (DoS via crafted glob pattern). Dev tooling only: ESLint, typescript-eslint
+and Expo CLI match patterns we write ourselves; never shipped in the library or the apps."""

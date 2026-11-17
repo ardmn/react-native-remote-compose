@@ -31,6 +31,56 @@ jobs:
       - name: Typecheck files
         run: yarn typecheck
 
+      - name: Unit tests (library contract, diagnostics, Expo plugin)
+        run: yarn test --ci
+
+      - name: Lint Kotlin (ktlint, checksum-pinned)
+        run: |
+          curl -sSfL -o /tmp/ktlint https://github.com/pinterest/ktlint/releases/download/1.8.0/ktlint
+          echo "a3fd620207d5c40da6ca789b95e7f823c54e854b7fade7f613e91096a3706d75  /tmp/ktlint" | sha256sum -c -
+          chmod +x /tmp/ktlint
+          /tmp/ktlint "android/src/**/*.kt" "tools/remote-compose-json/**/*.kt" "tools/remote-compose-json/*.kts"
+
+  supply-chain:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Known vulnerabilities in yarn.lock (OSV)
+        uses: google/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
+        with:
+          scan-args: |-
+            --config=osv-scanner.toml
+            --lockfile=yarn.lock
+
+  native-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Install JDK
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Converter tests (JSON -> .rc, renderability gate)
+        run: tools/remote-compose-json/gradlew -p tools/remote-compose-json test installDist --console=plain
+
+      - name: Demo documents are up to date with their JSON
+        run: |
+          tools/remote-compose-json/build/install/remote-compose-json/bin/remote-compose-json --dir example-shared/documents/json example-shared/documents/rc
+          git diff --exit-code -- example-shared/documents/rc
+
+      - name: Android unit tests (host value resolution)
+        run: example/android/gradlew -p example/android :react-native-remote-compose:testDebugUnitTest --console=plain
 
   build-library:
     runs-on: ubuntu-latest
