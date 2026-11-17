@@ -26,6 +26,12 @@
     "scheme": "rcdemo",
     "plugins": [
       "react-native-remote-compose"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bda85786-d0fb-42a2-b869-7b2727706318"
+      }
+    },
+    "owner": "ardmn"
   }
 }
