@@ -5,7 +5,7 @@ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 # rc-players ships its Apple player only through Swift Package Manager (a prebuilt
 # Compose Multiplatform XCFramework behind a checksum-pinned binary target). React Native's
 # own `spm_dependency` helper wires that package into the Pods project.
-RC_PLAYERS_VERSION = "3.8.0"
+rc_players_version = "3.8.0"
 
 Pod::Spec.new do |s|
   s.name         = "RemoteCompose"
@@ -20,6 +20,7 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/ardmn/react-native-remote-compose.git", :tag => "v#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift,cpp}"
+  s.exclude_files = "ios/Tests/**"
   s.private_header_files = "ios/**/*.h"
   s.swift_version = "5.10"
   s.pod_target_xcconfig = {
@@ -30,9 +31,15 @@ Pod::Spec.new do |s|
 
   spm_dependency(s,
     url: "https://github.com/yschimke/rc-players.git",
-    requirement: { "kind" => "exactVersion", "version" => RC_PLAYERS_VERSION },
+    requirement: { "kind" => "exactVersion", "version" => rc_players_version },
     products: ["RcComposePlayerSwiftUI"]
   )
 
   install_modules_dependencies(s)
+
+  # XCTest unit tests for the Swift layer. An app opts in with
+  # `pod "RemoteCompose", :path => ..., :testspecs => ["Tests"]` (the example app does).
+  s.test_spec "Tests" do |test_spec|
+    test_spec.source_files = "ios/Tests/**/*.swift"
+  end
 end

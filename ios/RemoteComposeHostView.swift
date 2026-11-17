@@ -15,48 +15,15 @@ public final class RemoteComposeHostView: UIView {
   @objc public var onError: ((RemoteComposeErrorEvent) -> Void)?
   @objc public var onLoad: ((RemoteComposeLoadEvent) -> Void)?
 
-  /// The view's props, as one value: staged one setter at a time, applied together in `commit()`.
-  private struct Props: Equatable {
-    var documentBase64: String?
-    var documentUri: String?
-    var documentHeaders: [String] = []
-    var documentJson: String?
-    var namedValues: [HostValue] = []
-    var theme = RemoteComposeTheme.defaultValue
-    var lenient = false
-
-    /// The document to show, by the spec's priority: base64, then JSON, then uri; nil for none.
-    var source: DocumentSource? {
-      if let documentBase64, !documentBase64.isEmpty {
-        return .base64(documentBase64)
-      }
-      if let documentJson, !documentJson.isEmpty {
-        return .json(documentJson)
-      }
-      if let documentUri, !documentUri.isEmpty {
-        return .uri(documentUri, headers: documentHeaders)
-      }
-      return nil
-    }
-
-    var configuration: RemoteComposePlayerConfiguration {
-      RemoteComposePlayerConfiguration(
-        theme: theme.playerTheme,
-        compatibility: lenient ? .compatible : .strict,
-        background: .transparent
-      )
-    }
-  }
-
   /// A document that was loaded and handed to the player.
   private struct Shown {
     let data: Data
     let configuration: RemoteComposePlayerConfiguration
   }
 
-  private var pendingProps = Props()
+  private var pendingProps = HostViewProps()
   /// The props last applied; the shown (or loading) document was requested with them.
-  private var committedProps: Props?
+  private var committedProps: HostViewProps?
   private var shown: Shown?
 
   private let playerController = RemoteComposePlayerController()
@@ -123,14 +90,14 @@ public final class RemoteComposeHostView: UIView {
     loadTask?.cancel()
     generation += 1
     removePlayer()
-    pendingProps = Props()
+    pendingProps = HostViewProps()
     committedProps = nil
     shown = nil
   }
 
   // MARK: - Loading
 
-  private func load(_ props: Props) {
+  private func load(_ props: HostViewProps) {
     loadTask?.cancel()
     generation += 1
     let current = generation
@@ -267,15 +234,5 @@ public final class RemoteComposeHostView: UIView {
 
   private nonisolated static func milliseconds(since start: UInt64) -> Double {
     Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
-  }
-}
-
-private extension RemoteComposeTheme {
-  var playerTheme: RemoteComposePlayerTheme {
-    switch self {
-    case .system: .system
-    case .light: .light
-    case .dark: .dark
-    }
   }
 }

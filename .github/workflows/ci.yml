@@ -223,3 +223,14 @@ jobs:
         run: |
           yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
+      - name: Swift unit tests (XCTest)
+        if: env.turbo_cache_hit != 1
+        run: |
+          # The first available iPhone simulator, whatever the runner image ships.
+          SIMULATOR=$(xcrun simctl list devices available --json | node -p "Object.values(JSON.parse(require('fs').readFileSync(0)).devices).flat().find(d => d.name.startsWith('iPhone')).udid")
+          xcodebuild test \
+            -workspace example/ios/RemoteComposeExample.xcworkspace \
+            -scheme RemoteCompose-Unit-Tests \
+            -destination "platform=iOS Simulator,id=$SIMULATOR" \
+            -derivedDataPath example/ios/build
+

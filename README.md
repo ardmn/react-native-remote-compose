@@ -251,6 +251,8 @@ yarn lint && yarn typecheck && yarn test
 yarn example android | ios  # bare demo;  cd example-expo && npx expo run:android | run:ios
 maestro test -e APP_ID=remotecompose.example e2e/host-values.yaml e2e/network.yaml
 yarn contract               # regenerate native models after changing the Codegen spec
+xcodebuild test -workspace example/ios/RemoteComposeExample.xcworkspace \
+  -scheme RemoteCompose-Unit-Tests -destination 'platform=iOS Simulator,name=iPhone 17'
 yarn documents              # regenerate demo .rc files from their JSON
 yarn measure:size           # what the library adds to an app (Android on any OS, iOS on macOS)
 yarn measure:perf android   # release-build performance (also: ios)
@@ -258,8 +260,8 @@ yarn measure:perf android   # release-build performance (also: ios)
 
 Tests describe behaviour, not implementation: the JS view contract and diagnostics (Jest +
 Testing Library), the Expo plugin's rules, converter output and demo-document integrity (Kotlin),
-host values, player events, props and bounded reads (Android unit), and device E2E on bare and
-Expo apps (Maestro).
+host values, player events, props and bounded reads (Android unit, and Swift XCTest through the
+podspec's `Tests` test spec), and device E2E on bare and Expo apps (Maestro).
 
 ### Supply chain
 
