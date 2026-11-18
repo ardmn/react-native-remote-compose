@@ -371,6 +371,13 @@ Testing Library), the Expo plugin's rules, converter output and demo-document in
 host values, player events, props and bounded reads (Android unit, and Swift XCTest through the
 podspec's `Tests` test spec), and device E2E on bare and Expo apps (Maestro).
 
+### Releasing
+
+Bump `version` in `package.json`, commit, wait for CI to pass, then push a tag `v<version>`. The
+`Release` workflow checks that CI passed for that commit, runs the checks again from a clean
+install and publishes with [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers):
+no npm token exists, and npm attaches a provenance attestation to the release.
+
 ### Supply chain
 
 Exact versions everywhere; `yarn.lock` is installed with `--immutable` in Yarn's hardened mode;

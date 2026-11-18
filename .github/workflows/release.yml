@@ -1,0 +1,67 @@
+# Publishes the package to npm when a version tag (v1.2.3) is pushed, through npm Trusted
+# Publishing: GitHub's OIDC token proves this workflow in this repository is publishing, so no npm
+# token exists anywhere, and npm attaches a provenance attestation to the release.
+# https://docs.npmjs.com/trusted-publishers
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      actions: read # to check that CI passed for the tagged commit
+      id-token: write # the OIDC token npm exchanges for a one-time publish credential
+    steps:
+      - name: CI passed for the tagged commit (native builds and supply-chain scan included)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CONCLUSION=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow CI --commit "$GITHUB_SHA" \
+            --json conclusion --jq 'map(.conclusion) | if any(. == "success") then "success" else (first // "none") end')
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "::error::CI has not passed for $GITHUB_SHA (latest: $CONCLUSION). Wait for a green CI run, then re-run this job."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc # Node 24 ships npm 11 (Trusted Publishing needs ≥ 11.5.1)
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false # a release is built from a clean install, never a cache
+
+      - name: Install dependencies (lockfile verified against the registry)
+        run: yarn install --immutable
+        env:
+          YARN_ENABLE_HARDENED_MODE: '1'
+
+      - name: The tag names the version in package.json
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $VERSION"
+            exit 1
+          fi
+
+      - name: Checks
+        run: |
+          yarn lint
+          yarn typecheck
+          yarn test --ci
+          yarn test:scripts
+          yarn contract --check
+
+      - name: Publish
+        run: npm publish --access public
