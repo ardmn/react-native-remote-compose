@@ -381,7 +381,9 @@ podspec's `Tests` test spec), and device E2E on bare and Expo apps (Maestro).
 Bump `version` in `package.json`, commit, wait for CI to pass, then push a tag `v<version>`. The
 `Release` workflow checks that CI passed for that commit, runs the checks again from a clean
 install and publishes with [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers):
-no npm token exists, and npm attaches a provenance attestation to the release.
+no npm token exists, and npm attaches a provenance attestation to the release. The job runs in the
+`npm` GitHub environment, which only `v*` tags may deploy to and which waits for a maintainer to
+approve (Actions → the Release run → Review deployments).
 
 ### Supply chain
 
