@@ -9,6 +9,8 @@
 
 **Server-driven UI for React Native with Jetpack Remote Compose.**
 
+![react-native-remote-compose: play Remote Compose documents on Android and iOS](docs/preview.jpg)
+
 Play [Remote Compose](https://developer.android.com/jetpack/androidx/releases/compose-remote)
 documents (`.rc`) in React Native on **Android and iOS**, drive them from JS with **named values**
 (text, numbers, colors) and receive their **actions** (click, long press) as typed events.
