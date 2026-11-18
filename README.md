@@ -1,5 +1,14 @@
 # react-native-remote-compose
 
+[![npm](https://img.shields.io/npm/v/react-native-remote-compose)](https://www.npmjs.com/package/react-native-remote-compose)
+[![npm downloads](https://img.shields.io/npm/dm/react-native-remote-compose)](https://www.npmjs.com/package/react-native-remote-compose)
+[![CI](https://github.com/ardmn/react-native-remote-compose/actions/workflows/ci.yml/badge.svg)](https://github.com/ardmn/react-native-remote-compose/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/npm/l/react-native-remote-compose)](LICENSE)
+![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-blue)
+![Expo](https://img.shields.io/badge/Expo-SDK%2058%2B-000020)
+
+**Server-driven UI for React Native with Jetpack Remote Compose.**
+
 Play [Remote Compose](https://developer.android.com/jetpack/androidx/releases/compose-remote)
 documents (`.rc`) in React Native on **Android and iOS**, drive them from JS with **named values**
 (text, numbers, colors) and receive their **actions** (click, long press) as typed events.
@@ -8,6 +17,9 @@ Both platforms draw with the same renderer — the Compose Multiplatform player 
 [rc-players](https://github.com/yschimke/rc-players) — so one document looks and behaves the same
 everywhere. AndroidX's authoring JSON is supported too: converted on the device on Android, and by
 the bundled CLI for servers and iOS builds.
+
+What can a document contain? Every Remote Compose building block, live with its code:
+**[Remote Compose Storybook](https://ardmn.github.io/remote-compose-storybook/)**.
 
 ```tsx
 <RemoteComposeView

@@ -61,7 +61,15 @@
     "rc-players",
     "server-driven-ui",
     "fabric",
-    "new-architecture"
+    "new-architecture",
+    "remote-compose-player",
+    "server-driven",
+    "sdui",
+    "androidx",
+    "dynamic-ui",
+    "react-native-component",
+    "expo-plugin",
+    "typescript"
   ],
   "repository": {
     "type": "git",
