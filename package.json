@@ -1,6 +1,6 @@
 {
   "name": "react-native-remote-compose",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Play Remote Compose (.rc) documents in React Native on Android and iOS, with host actions and named values",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
