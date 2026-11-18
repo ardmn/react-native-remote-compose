@@ -235,6 +235,11 @@ crashes the app; a missing native module is reported when first used, with rebui
 
 ## Authoring documents
 
+**See every building block first:** the
+[Remote Compose Storybook](https://ardmn.github.io/remote-compose-storybook/) is a live catalog of
+the public `@RemoteComposable` API: each component and modifier rendered, with the code that
+produces it and what it writes into the document.
+
 Author in Kotlin with Remote Compose's `@RemoteComposable` API, or as
 [AndroidX authoring JSON](https://github.com/androidx/androidx/blob/androidx-main/compose/remote/Documentation/parts/json-parser.md)
 from any backend. Convert JSON with the bundled CLI — it also runs rc-players' own renderability
@@ -393,6 +398,7 @@ React Native [Fabric native components](https://reactnative.dev/docs/fabric-nati
 [create-react-native-library](https://oss.callstack.com/react-native-builder-bob/create) ·
 Expo [config plugins](https://docs.expo.dev/config-plugins/introduction/),
 [monorepos](https://docs.expo.dev/guides/monorepos/) ·
+[Remote Compose Storybook](https://ardmn.github.io/remote-compose-storybook/) ·
 [rc-players](https://github.com/yschimke/rc-players) (player API, Swift integration in
 `docs/design/RC_PLAYER_SWIFT.md`) ·
 AndroidX [Remote Compose](https://github.com/androidx/androidx/tree/androidx-main/compose/remote) ·
