@@ -15,7 +15,6 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { availableParallelism, loadavg } from 'node:os';
 import { join } from 'node:path';
 import {
   PERF_PHASES,
@@ -25,7 +24,6 @@ import {
 import {
   DEMO,
   IS_MAC,
-  IS_WINDOWS,
   ROOT,
   adb,
   buildAndroidRelease,
@@ -34,6 +32,7 @@ import {
   run,
 } from './lib.ts';
 import { type Frames, parseGfxinfo, parseReport } from './perf-parse.ts';
+import { sampleBusyPercent } from './host-cpu.ts';
 import { median } from './stats.ts';
 
 const USAGE = 'usage: yarn measure:perf android|ios [runs ≥ 2, default 6]';
@@ -57,35 +56,34 @@ if (platform === 'ios' && !IS_MAC) {
 /** How long a run may take before the app is assumed not to be reporting. */
 const RESULT_TIMEOUT_MS = 120_000;
 
-// A busy machine slows an emulator or simulator as much as any library could: record the load
-// with the results, and say so up front when it is high. Windows has no load average.
-const cores = availableParallelism();
-const hostLoad = (): string => (IS_WINDOWS ? 'n/a' : loadavg()[0]!.toFixed(1));
+// A busy machine slows an emulator or simulator as much as any library could: wait for the CPUs to
+// settle before the runs, and record how busy they were with the results.
 const IDLE_WAIT_MS = 10 * 60_000;
-const IDLE_POLL_MS = 10_000;
+const IDLE_SAMPLE_MS = 5_000;
+/** Busier than this, before the runs start, and results are noisy (an idle emulator is ~25 %). */
+const MAX_BUSY_PERCENT = 35;
+const percent = (value: number) => `${value.toFixed(0)} %`;
 
 /**
- * Called after the build, right before the runs: the build itself heats the machine, and the load
- * that matters is the one the runs see. Waits (up to 10 minutes) for the 1-minute load to fall below
- * half the cores, then returns it; warns if it never does.
+ * Called after the build, right before the runs: the build itself heats the machine, and what
+ * matters is what the runs see. Waits (up to 10 minutes) for the CPUs to be at most
+ * MAX_BUSY_PERCENT busy over a 5-second sample; warns if they never are. Returns the last sample.
  */
-async function waitForIdleHost(): Promise<string> {
-  if (IS_WINDOWS) return hostLoad();
+async function waitForIdleHost(): Promise<number> {
   const deadline = Date.now() + IDLE_WAIT_MS;
-  while (loadavg()[0]! > cores / 2 && Date.now() < deadline) {
-    console.log(
-      `waiting for the host to settle: 1-min load ${hostLoad()} on ${cores} cores…`
-    );
-    await new Promise((resolve) => setTimeout(resolve, IDLE_POLL_MS));
+  let busy = await sampleBusyPercent(IDLE_SAMPLE_MS);
+  while (busy > MAX_BUSY_PERCENT && Date.now() < deadline) {
+    console.log(`waiting for the host to settle: CPUs ${percent(busy)} busy…`);
+    busy = await sampleBusyPercent(IDLE_SAMPLE_MS);
   }
-  if (loadavg()[0]! > cores / 2) {
+  if (busy > MAX_BUSY_PERCENT) {
     console.warn(
-      `warning: 1-min load ${hostLoad()} on ${cores} cores — results will be noisy; stop other work first.`
+      `warning: CPUs ${percent(busy)} busy before the runs — results will be noisy; stop other work first.`
     );
   }
-  return hostLoad();
+  return busy;
 }
-let loadBeforeRuns = 'n/a';
+let busyBeforeRuns = 0;
 
 const OUT = join(ROOT, 'build/perf');
 mkdirSync(OUT, { recursive: true });
@@ -198,7 +196,7 @@ async function measureAndroid(): Promise<{ device: string; results: Run[] }> {
   });
   adb('install', '-r', apk);
   adb('reverse', `tcp:${port}`, `tcp:${port}`);
-  loadBeforeRuns = await waitForIdleHost();
+  busyBeforeRuns = await waitForIdleHost();
   const id = DEMO.androidApplicationId;
   const results: Run[] = [];
   try {
@@ -266,7 +264,7 @@ async function measureIos(): Promise<{ device: string; results: Run[] }> {
   };
   const results: Run[] = [];
   onPhase = () => {};
-  loadBeforeRuns = await waitForIdleHost();
+  busyBeforeRuns = await waitForIdleHost();
   try {
     for (let i = 0; i < runs; i++) {
       terminate();
@@ -314,7 +312,7 @@ try {
     return `| ${name} | ${round(median(values))}${unit} | ${round(Math.min(...values))}–${round(Math.max(...values))}${unit} | ${firstValue === undefined ? '—' : `${round(firstValue)}${unit}`} |`;
   };
   const lines = [
-    `${platform} · ${device} · ${repeats.length} repeat launches + 1 first launch · host load ${loadBeforeRuns} → ${hostLoad()} on ${cores} cores during the runs`,
+    `${platform} · ${device} · ${repeats.length} repeat launches + 1 first launch · host CPUs ${percent(busyBeforeRuns)} busy before the runs, ${percent(await sampleBusyPercent(IDLE_SAMPLE_MS))} after`,
     '',
     '| Metric | Median (repeat launches) | Range | First launch |',
     '|---|---|---|---|',
