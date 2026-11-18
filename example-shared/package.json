@@ -2,6 +2,7 @@
   "name": "react-native-remote-compose-example-shared",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "description": "Demo screens and documents shared by the bare React Native and Expo examples",
   "main": "src/index.tsx",
   "peerDependencies": {

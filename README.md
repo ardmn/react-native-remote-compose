@@ -270,25 +270,32 @@ Lessons from the demo documents (all verified on devices):
 ## Performance
 
 Measured with `yarn measure:perf android|ios` on **release** builds of the bare demo (Android with
-R8): 12 documents mounted at once, each animating continuously, 6 runs (run 1 cold), median with the
-range in brackets. Emulator and simulator on an Apple-silicon Mac with the host otherwise idle —
+R8): 12 documents mounted at once, each animating continuously. Each platform ran 6 launches: one
+first launch (app data cleared) and 5 repeat launches. The table shows the median of the repeat
+launches with their range in brackets. Emulator and simulator ran on an Apple-silicon Mac whose
+CPUs were 13–26 % busy during the runs (the script waits for that before starting). This is
 indicative, not a phone benchmark; repeat on target devices before relying on exact numbers.
 
 | | Android (emulator, API 37) | iOS (simulator, iPhone 17) |
 |---|---|---|
-| 12 documents mounted → all loaded | **67 ms** (58–117) | **163 ms** (153–726) |
-| Load per document | 26 ms (16–31), background thread | 0.1 ms (bundled file), background |
-| Decode + validate per document | 8 ms (5–18), background thread | 2.5 ms (2.4–5), main thread¹ |
-| UI thread, 12 animating: janky frames | **0.5 %** (0–1.1) | — |
-| Longest JS-thread stall: no document → 12 animating | 25 → **21 ms** | 9.8 → **8.8 ms** |
-| JS frame callbacks/s: no document → 12 animating | 41 → 30 (both vary 30–60)² | 60 → **60** |
+| 12 documents mounted → all loaded | **65 ms** (49–75) | **128 ms** (33–158) |
+| Same, first launch after install | 72 ms | 839 ms³ |
+| Load per document | 14 ms (13–18), background thread | 0.2 ms (bundled file), background |
+| Decode + validate per document | 6 ms (5.5–10), background thread | 2.8 ms (1.9–3.5), main thread¹ |
+| UI thread, 12 animating: janky frames | **0 %** (0–1.1) | — |
+| UI thread, 12 animating: 99th-percentile frame time | 36 ms (34–36) | — |
+| Longest JS-thread stall: no document → 12 mounting → 12 animating | 26 → 30 → **27 ms** | 10.6 → 9.4 → **9.3 ms** |
+| JS frame callbacks/s: no document → 12 animating | 30 → 30² | 60 → **60** |
+| Named-value updates/s delivered to 12 documents | 30² | **60** |
 
-What this shows: loading, decoding and validation never run on the JS thread; documents animate
-on the native side, so a dozen animating documents leave the JS thread as responsive as with none.
+What this shows: loading, decoding and validation never run on the JS thread, and documents animate
+on the native side. A dozen animating documents leave the JS thread as responsive as an empty
+screen, and named values reach all twelve at the frame rate.
 
 ¹ rc-players' iOS controller decodes as it is created; it runs on the main thread by design.
-² The Android emulator alternates JS frame callbacks between 30 and 60 per second even with no
-document on screen, so that row does not isolate the documents' cost.
+² The Android emulator delivers JS frame callbacks at 30 per second even with no document on screen
+(60 on the first launch), so those rows show the emulator's rate, not the documents' cost.
+³ The iOS first launch includes the system's one-off work for a freshly installed app.
 
 ## App size
 
