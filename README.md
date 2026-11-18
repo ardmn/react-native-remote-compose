@@ -84,13 +84,18 @@ Rebuild the native app after installing; a hot reload is not enough.
 ### 3. Show a document
 
 ```tsx
+import { View } from 'react-native';
 import { RemoteComposeView } from 'react-native-remote-compose';
 
 const CARD =
   'https://raw.githubusercontent.com/ardmn/react-native-remote-compose/main/example-shared/documents/rc/product_card.rc';
 
 export default function App() {
-  return <RemoteComposeView style={{ height: 240, margin: 16 }} source={{ uri: CARD }} />;
+  return (
+    <View style={{ flex: 1, justifyContent: 'center' }}>
+      <RemoteComposeView style={{ height: 240, margin: 16 }} source={{ uri: CARD }} />
+    </View>
+  );
 }
 ```
 
@@ -106,7 +111,7 @@ press). `onLoad` lists the names any document declares.
 
 ```tsx
 import { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, View } from 'react-native';
 import { RemoteComposeView } from 'react-native-remote-compose';
 
 const CARD =
@@ -116,24 +121,26 @@ export default function App() {
   const [count, setCount] = useState(0);
 
   return (
-    <RemoteComposeView
-      style={{ height: 240, margin: 16 }}
-      source={{ uri: CARD }}
-      namedValues={{
-        title: 'Flat white',                          // a string sets text
-        subtitle: 'Oat milk, extra hot',
-        rating: 0.8,                                  // a number sets a number (0…1 here)
-        count,
-        accent: { type: 'color', value: '#6750A4' },  // colors are tagged; any React Native color
-      }}
-      onAction={(event) => {
-        if (event.kind !== 'named') return;
-        if (event.name === 'add_to_cart') setCount((c) => c + 1);
-        if (event.name === 'show_details') Alert.alert('Details', 'Long press in the document');
-      }}
-      onLoad={(event) => console.log('declares', event.namedValues)}
-      onError={(error) => console.warn(error.code, error.message)}
-    />
+    <View style={{ flex: 1, justifyContent: 'center' }}>
+      <RemoteComposeView
+        style={{ height: 240, margin: 16 }}
+        source={{ uri: CARD }}
+        namedValues={{
+          title: 'Flat white',                          // a string sets text
+          subtitle: 'Oat milk, extra hot',
+          rating: 0.8,                                  // a number sets a number (0…1 here)
+          count,
+          accent: { type: 'color', value: '#6750A4' },  // colors are tagged; any React Native color
+        }}
+        onAction={(event) => {
+          if (event.kind !== 'named') return;
+          if (event.name === 'add_to_cart') setCount((c) => c + 1);
+          if (event.name === 'show_details') Alert.alert('Details', 'Long press in the document');
+        }}
+        onLoad={(event) => console.log('declares', event.namedValues)}
+        onError={(error) => console.warn(error.code, error.message)}
+      />
+    </View>
   );
 }
 ```

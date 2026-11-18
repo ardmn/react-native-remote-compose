@@ -7,7 +7,6 @@
     "preview": {
       "distribution": "internal",
       "node": "24.22.1",
-      "corepack": true,
       "android": {
         "buildType": "apk",
         "image": "latest"
