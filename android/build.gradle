@@ -65,7 +65,11 @@ dependencies {
   implementation "ee.schimke.composeai:rc-player-compose:${getExtOrDefault('rcPlayersVersion')}"
   implementation "org.jetbrains.compose.foundation:foundation:${getExtOrDefault('composeMultiplatformVersion')}"
   // AndroidX's authoring-JSON parser (RemoteComposeJsonParser), for `{ json }` sources.
-  implementation "androidx.compose.remote:remote-creation-core:${getExtOrDefault('androidxRemoteVersion')}"
+  // `strictly`: the parser is AndroidX-internal (@RestrictTo), so another version must never be
+  // resolved in silently; an app that needs one sets `androidxRemoteVersion` and re-runs ConvertTest.
+  implementation("androidx.compose.remote:remote-creation-core") {
+    version { strictly getExtOrDefault('androidxRemoteVersion') }
+  }
 
   testImplementation "junit:junit:4.13.2"
 }
