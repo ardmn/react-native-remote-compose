@@ -64,9 +64,9 @@ export function RemoteComposeView({
   const propsError = [nativeSource.error, ...nativeValues.errors]
     .filter((message) => message !== undefined)
     .join('\n');
-  const reportPropsError = useEffectEvent((message: string) =>
-    fail({ code: 'props', message })
-  );
+  const reportPropsError = useEffectEvent((message: string) => {
+    fail({ code: 'props', message });
+  });
   useEffect(() => {
     if (propsError) reportPropsError(propsError);
   }, [propsError]);
@@ -77,11 +77,12 @@ export function RemoteComposeView({
     [onAction]
   );
   const handleError = useCallback(
-    (event: NativeSyntheticEvent<NativeErrorEvent>) =>
+    (event: NativeSyntheticEvent<NativeErrorEvent>) => {
       fail({
         code: event.nativeEvent.code,
         message: event.nativeEvent.message,
-      }),
+      });
+    },
     [fail]
   );
   const handleLoad = useCallback(

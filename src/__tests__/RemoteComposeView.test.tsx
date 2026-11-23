@@ -19,7 +19,9 @@ let consoleError: jest.SpyInstance;
 beforeEach(() => {
   consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 });
-afterEach(() => consoleError.mockRestore());
+afterEach(() => {
+  consoleError.mockRestore();
+});
 
 describe('source', () => {
   it('passes a remote uri and its headers to the native loader', async () => {
@@ -367,7 +369,9 @@ describe('errors', () => {
             accent: { type: 'color', value: PlatformColor('systemBlue') },
           }}
           // Capped, so a regression ends the loop and fails the assertion instead of hanging.
-          onError={() => setErrors((n) => Math.min(n + 1, 5))}
+          onError={() => {
+            setErrors((n) => Math.min(n + 1, 5));
+          }}
           accessibilityHint={String(errors)}
         />
       );

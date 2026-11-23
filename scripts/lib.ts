@@ -106,7 +106,7 @@ export function run(
     if (result.status !== 0) {
       const detail = options.log
         ? `see ${options.log}`
-        : `${result.stderr || result.stdout}`.slice(-2000);
+        : (result.stderr || result.stdout).slice(-2000);
       throw new Error(`${shown} exited with ${result.status} — ${detail}`);
     }
     return logFd === undefined ? result.stdout : '';

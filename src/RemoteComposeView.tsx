@@ -16,6 +16,8 @@ export function RemoteComposeView({ onError }: RemoteComposeViewProps): null {
     onError?.(error);
   });
   // Once per mount: the platform does not change.
-  useEffect(() => report(), []);
+  useEffect(() => {
+    report();
+  }, []);
   return null;
 }

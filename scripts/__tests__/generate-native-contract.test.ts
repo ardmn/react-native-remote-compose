@@ -39,12 +39,15 @@ test('the generated header names the spec with a repository path', () => {
 });
 
 test('a wire value that cannot be a Kotlin/Swift enum case is refused, naming the field', () => {
-  assert.throws(() => checkIdentifier('theme', 'default'), /theme: "default"/);
-  assert.throws(
-    () => checkIdentifier('code', 'not-found'),
-    /code: "not-found"/
-  );
-  assert.doesNotThrow(() => checkIdentifier('valueType', 'floatList'));
+  assert.throws(() => {
+    checkIdentifier('theme', 'default');
+  }, /theme: "default"/);
+  assert.throws(() => {
+    checkIdentifier('code', 'not-found');
+  }, /code: "not-found"/);
+  assert.doesNotThrow(() => {
+    checkIdentifier('valueType', 'floatList');
+  });
 });
 
 test('a spec whose event uses such a value fails generation', () => {

@@ -13,10 +13,11 @@ export function NetworkScreen() {
   const [status, setStatus] = useState('loading…');
   const doc = networkDocuments[index]!;
 
-  const onLoad = (e: RemoteComposeLoadEvent) =>
+  const onLoad = (e: RemoteComposeLoadEvent) => {
     setStatus(
       `${e.byteLength} bytes · fetch ${e.loadMs.toFixed(0)} ms · decode ${e.decodeMs.toFixed(1)} ms`
     );
+  };
 
   return (
     <>
@@ -26,7 +27,9 @@ export function NetworkScreen() {
           source={{ uri: doc.uri }}
           lenient={lenient}
           onLoad={onLoad}
-          onError={(e) => setStatus(`error ${e.code}: ${e.message}`)}
+          onError={(e) => {
+            setStatus(`error ${e.code}: ${e.message}`);
+          }}
         />
         <Mono>{status}</Mono>
         {'note' in doc ? <Mono>{doc.note}</Mono> : null}
@@ -49,7 +52,9 @@ export function NetworkScreen() {
           <Button
             label={lenient ? 'lenient: on' : 'lenient: off'}
             selected={lenient}
-            onPress={() => setLenient((v) => !v)}
+            onPress={() => {
+              setLenient((v) => !v);
+            }}
           />
         </Row>
       </Section>

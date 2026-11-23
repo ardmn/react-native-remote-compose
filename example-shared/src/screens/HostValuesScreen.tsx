@@ -50,15 +50,20 @@ export function HostValuesScreen() {
           namedValues={namedValues}
           onAction={onAction}
           onLoad={setLoaded}
-          onError={(e) =>
-            setEvents((l) => [`error ${e.code}: ${e.message}`, ...l])
-          }
+          onError={(e) => {
+            setEvents((l) => [`error ${e.code}: ${e.message}`, ...l]);
+          }}
         />
       </Section>
       {details ? (
         <Section title="Long press → show_details">
           <Text>{title}: details opened by a long press in the document.</Text>
-          <Button label="close" onPress={() => setDetails(false)} />
+          <Button
+            label="close"
+            onPress={() => {
+              setDetails(false);
+            }}
+          />
         </Section>
       ) : null}
       <Section title="Host values → document">
@@ -66,13 +71,22 @@ export function HostValuesScreen() {
         <Row>
           <Button
             label="rating −"
-            onPress={() => setRating((r) => Math.max(0, r - 0.1))}
+            onPress={() => {
+              setRating((r) => Math.max(0, r - 0.1));
+            }}
           />
           <Button
             label="rating +"
-            onPress={() => setRating((r) => Math.min(1, r + 0.1))}
+            onPress={() => {
+              setRating((r) => Math.min(1, r + 0.1));
+            }}
           />
-          <Button label="reset cart" onPress={() => setCount(0)} />
+          <Button
+            label="reset cart"
+            onPress={() => {
+              setCount(0);
+            }}
+          />
         </Row>
         <Row>
           {ACCENTS.map((color) => (
@@ -80,7 +94,9 @@ export function HostValuesScreen() {
               key={color}
               label={color}
               selected={color === accent}
-              onPress={() => setAccent(color)}
+              onPress={() => {
+                setAccent(color);
+              }}
             />
           ))}
         </Row>
