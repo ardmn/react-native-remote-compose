@@ -65,7 +65,7 @@ android {
     abortOnError true
     warningsAsErrors true
     // Checks whose result changes without any change here: they compare against what is published
-    // today (Maven, Google's SDK Index, AGP releases) or against the date. Dependabot covers updates.
+    // today (Maven, Google's SDK Index, AGP releases) or against the date.
     disable += [
       "GradleDependency",
       "NewerVersionAvailable",

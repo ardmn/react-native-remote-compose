@@ -76,8 +76,8 @@ in a baseline; fix one and shrink its baseline in the same change. What a baseli
 - ESLint's `eslint-suppressions.json` counts violations per file and rule, not per location. A fixed
   violation whose count is not lowered fails (`yarn lint --prune-suppressions` lowers it), but a new
   violation of the same rule in the same file passes if an old one is fixed in the same change.
-- Android Lint and detekt match an entry by issue, file and message. An entry that no longer matches
-  does not fail (Android Lint only prints that it was not found), so remove it with the fix.
+- Android Lint and detekt: an entry that no longer matches a finding does not fail (Android Lint
+  only prints that it was not found), so remove it with the fix.
 - knip fails on an `ignoreDependencies` entry that is no longer needed. A `@knipignore` tag covers
   only the export it is on; knip does not report one left on an export that became used.
 - Android Lint skips the checks whose result changes with no code change (newer versions published,
