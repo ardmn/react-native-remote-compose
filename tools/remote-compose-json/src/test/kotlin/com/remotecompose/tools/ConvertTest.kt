@@ -38,6 +38,27 @@ class ConvertTest {
     }
 
     @Test
+    fun `object-form resources are declared in the order they are written, as on a device`() {
+        // Android's org.json keeps insertion order and the parser walks keys(), so ids follow the
+        // JSON. The CLI must do the same, or its .rc files (shipped to iOS) differ from on-device
+        // conversion of the same JSON.
+        val written = listOf("zebra", "apple", "mango", "kiwi", "banana", "cherry")
+        val colors = written.mapIndexed { i, name -> "\"$name\":\"#FF00000$i\"" }.joinToString(",")
+        val declared = RcDocumentCodec.decode(
+            convert(
+                """
+                {"root":{"global":[
+                  {"resources":{"colors":{$colors}}},
+                  {"box":{"modifiers":[{"background":"${'$'}colors.zebra"}]}}
+                ]}}
+                """.trimIndent()
+            )
+        ).operations.filterIsInstance<RcNamedVariable>()
+        assertEquals(written.map { "USER:$it" }, declared.map { it.name })
+        assertEquals(declared.map { it.id }.sorted(), declared.map { it.id }, "ids ascend in written order")
+    }
+
+    @Test
     fun `a host action keeps the name the author gave it`() {
         val document = RcDocumentCodec.decode(
             convert(

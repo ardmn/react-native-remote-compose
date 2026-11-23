@@ -35,7 +35,10 @@ sourceSets.main {
 dependencies {
     // AndroidX's own authoring-JSON parser; on the JVM it needs org.json, which Android bundles.
     implementation("androidx.compose.remote:remote-creation-core:$androidxRemoteVersion")
-    implementation("org.json:json:20260814")
+    // Android's org.json, not org.json:json: the parser walks JSONObject.keys() to assign ids, and
+    // only Android's keeps insertion order (org.json:json is a HashMap), so the CLI writes the same
+    // bytes as on-device conversion. open-json is AOSP's libcore JSON code, Apache-2.0.
+    implementation("com.tdunning:json:1.8")
     // rc-players' reader: validates what the parser wrote and prints it (--dump).
     implementation("ee.schimke.composeai:rc-player-edit:$rcPlayersVersion")
     // rc-players' renderer support check: the same gate the Android/iOS views run before playing.
