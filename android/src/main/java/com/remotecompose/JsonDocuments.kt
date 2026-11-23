@@ -13,10 +13,10 @@ internal object JsonDocuments {
      *
      * `RemoteComposeJsonParser` is `@RestrictTo(LIBRARY_GROUP)` in AndroidX: no public API turns
      * authoring JSON into a document, and a restricted API can change in any release without
-     * notice. Accepted knowingly, with two guards: android/build.gradle pins remote-creation-core
-     * with `strictly`, and tools/remote-compose-json's ConvertTest requires the demo documents to
-     * convert byte-identically to the committed `.rc` files, so a version bump that changes the
-     * parser fails there instead of on a device.
+     * notice. Accepted knowingly. The guard is the CI step "Demo documents are up to date with
+     * their JSON" (.github/workflows/ci.yml): it reconverts the demo documents with the pinned
+     * version and fails if a committed `.rc` changes. It covers only the demo documents, not every
+     * JSON an app sends. After reviewing a change, regenerate them with `yarn documents`.
      */
     // Kotlin @Suppress rather than @SuppressLint: tools/remote-compose-json compiles this file on
     // the plain JVM. Android Lint honours both.

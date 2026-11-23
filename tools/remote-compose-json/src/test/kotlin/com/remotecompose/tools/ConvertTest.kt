@@ -65,26 +65,6 @@ class ConvertTest {
     }
 
     @Test
-    fun `the demo documents convert byte-identically to the committed rc files`() {
-        // The contract guard for AndroidX's restricted RemoteComposeJsonParser (see JsonDocuments):
-        // a remote-creation-core bump that changes what it writes fails here. Review the change,
-        // then regenerate with `remote-compose-json --dir example-shared/documents/json
-        // example-shared/documents/rc`.
-        val json = java.io.File("../../example-shared/documents/json")
-        val rc = java.io.File("../../example-shared/documents/rc")
-        val files = json.listFiles { f -> f.extension == "json" }.orEmpty()
-        assertTrue(files.isNotEmpty(), "demo documents found in ${json.absolutePath}")
-        files.forEach { file ->
-            val committed = java.io.File(rc, file.nameWithoutExtension + ".rc")
-            assertTrue(committed.isFile, "${committed.name} is committed next to ${file.name}")
-            assertTrue(
-                convert(file.readText()).contentEquals(committed.readBytes()),
-                "${file.name} no longer converts to the committed ${committed.name}"
-            )
-        }
-    }
-
-    @Test
     fun `touch actions in the demo documents change a declared number, never a stray text`() {
         val dir = java.io.File("../../example-shared/documents/json")
         dir.listFiles { f -> f.extension == "json" }.orEmpty().forEach { file ->

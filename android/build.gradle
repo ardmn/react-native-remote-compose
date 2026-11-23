@@ -64,12 +64,9 @@ dependencies {
   // The player: rc-players' Compose Multiplatform renderer (the same one the iOS side ships).
   implementation "ee.schimke.composeai:rc-player-compose:${getExtOrDefault('rcPlayersVersion')}"
   implementation "org.jetbrains.compose.foundation:foundation:${getExtOrDefault('composeMultiplatformVersion')}"
-  // AndroidX's authoring-JSON parser (RemoteComposeJsonParser), for `{ json }` sources.
-  // `strictly`: the parser is AndroidX-internal (@RestrictTo), so another version must never be
-  // resolved in silently; an app that needs one sets `androidxRemoteVersion` and re-runs ConvertTest.
-  implementation("androidx.compose.remote:remote-creation-core") {
-    version { strictly getExtOrDefault('androidxRemoteVersion') }
-  }
+  // AndroidX's authoring-JSON parser (RemoteComposeJsonParser), for `{ json }` sources. It is
+  // AndroidX-internal (@RestrictTo): the README ("Authoring documents") says what that means for apps.
+  implementation "androidx.compose.remote:remote-creation-core:${getExtOrDefault('androidxRemoteVersion')}"
 
   testImplementation "junit:junit:4.13.2"
 }

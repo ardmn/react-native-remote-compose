@@ -44,6 +44,4 @@ tasks.test {
     useJUnitPlatform()
     // The tests read the demo documents: a changed document must re-run them, never hit the cache.
     inputs.dir("../../example-shared/documents/json").withPathSensitivity(PathSensitivity.RELATIVE)
-    // ...and so must a changed committed `.rc`, which the byte-identity contract test compares to.
-    inputs.dir("../../example-shared/documents/rc").withPathSensitivity(PathSensitivity.RELATIVE)
 }
