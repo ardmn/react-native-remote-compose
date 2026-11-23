@@ -69,9 +69,17 @@ yarn lint --fix
 
 ### Static analysis
 
-CI runs these checks and fails on any new finding. Findings that predate a tool are recorded in
-a baseline file; fix one and shrink its baseline in the same change (a stale entry fails too for
-ESLint and knip).
+CI runs these checks and fails on any new finding, warnings included (`yarn lint` runs with
+`--max-warnings 0`, Android Lint with `warningsAsErrors`). Findings that predate a tool are recorded
+in a baseline; fix one and shrink its baseline in the same change. What a baseline matches differs:
+
+- ESLint's `eslint-suppressions.json` counts violations per file and rule, not per location. A fixed
+  violation whose count is not lowered fails (`yarn lint --prune-suppressions` lowers it), but a new
+  violation of the same rule in the same file passes if an old one is fixed in the same change.
+- Android Lint and detekt match an entry by issue, file and message. An entry that no longer matches
+  does not fail (Android Lint only prints that it was not found), so remove it with the fix.
+- Android Lint skips the checks whose result changes with no code change (newer versions published,
+  Google's SDK Index, the date); see `lint` in `android/build.gradle`.
 
 | Area | Tool (pinned in CI) | Run locally | Baseline |
 | --- | --- | --- | --- |

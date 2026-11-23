@@ -61,8 +61,25 @@ android {
   }
 
   lint {
+    // Any new finding fails, warnings included.
     abortOnError true
-    warningsAsErrors false
+    warningsAsErrors true
+    // Checks whose result changes without any change here: they compare against what is published
+    // today (Maven, Google's SDK Index, AGP releases) or against the date. Dependabot covers updates.
+    disable += [
+      "GradleDependency",
+      "NewerVersionAvailable",
+      "AndroidGradlePluginVersion",
+      "OldTargetApi",
+      "ExpiredTargetSdkVersion",
+      "ExpiringTargetSdkVersion",
+      "OutdatedLibrary",
+      "RiskyLibrary",
+      "PlaySdkIndexNonCompliant",
+      "PlaySdkIndexVulnerability",
+      "PlaySdkIndexGenericIssues",
+      "PlaySdkIndexDeprecated",
+    ]
     // Findings that predate running lint in CI; only new ones fail. Regenerate with
     // `:react-native-remote-compose:updateLintBaseline` after fixing one.
     baseline = file("lint-baseline.xml")

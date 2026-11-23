@@ -2,18 +2,6 @@
 <issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
 
     <issue
-        id="GradleDependency"
-        message="A newer version of androidx.compose.remote:remote-creation-core than 1.0.0-alpha23 is available: 1.0.0-alpha24"
-        errorLine1="  implementation &quot;androidx.compose.remote:remote-creation-core:${getExtOrDefault(&apos;androidxRemoteVersion&apos;)}&quot;"
-        errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle"
-            line="68"
-            column="18"/>
-    </issue>
-
-
-    <issue
         id="ViewConstructor"
         message="Custom view `RemoteComposeView` is missing constructor used by tools: `(Context)` or `(Context,AttributeSet)` or `(Context,AttributeSet,int)`"
         errorLine1="class RemoteComposeView(private val reactContext: ThemedReactContext) : FrameLayout(reactContext) {"

@@ -9,7 +9,7 @@ pre-commit:
   commands:
     lint:
       glob: "*.{js,ts,tsx}"
-      run: yarn eslint {staged_files}
+      run: yarn eslint --max-warnings 0 {staged_files}
     types:
       glob: "*.{ts,tsx}"
       run: yarn typecheck
