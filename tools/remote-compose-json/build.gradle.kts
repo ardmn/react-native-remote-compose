@@ -36,8 +36,12 @@ dependencies {
     // AndroidX's own authoring-JSON parser; on the JVM it needs org.json, which Android bundles.
     implementation("androidx.compose.remote:remote-creation-core:$androidxRemoteVersion")
     // Android's org.json, not org.json:json: the parser walks JSONObject.keys() to assign ids, and
-    // only Android's keeps insertion order (org.json:json is a HashMap), so the CLI writes the same
-    // bytes as on-device conversion. open-json is AOSP's libcore JSON code, Apache-2.0.
+    // only Android's keeps insertion order (org.json:json is a HashMap), so ids follow the JSON text
+    // as they do on a device. open-json is AOSP's libcore JSON code, Apache-2.0.
+    // Accepted risk: its last release is 1.8 (January 2017) and it gets no fixes. It runs only in
+    // this dev CLI, on JSON we author, and is not shipped in the npm package or the apps (Android
+    // bundles its own org.json). OSV-Scanner in CI does not cover it: it scans yarn.lock and
+    // example/Gemfile.lock, not this build's Gradle dependencies.
     implementation("com.tdunning:json:1.8")
     // rc-players' reader: validates what the parser wrote and prints it (--dump).
     implementation("ee.schimke.composeai:rc-player-edit:$rcPlayersVersion")
