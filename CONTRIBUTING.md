@@ -67,6 +67,27 @@ To fix formatting errors, run the following:
 yarn lint --fix
 ```
 
+### Static analysis
+
+CI runs these checks and fails on any new finding. Findings that predate a tool are recorded in
+a baseline file; fix one and shrink its baseline in the same change (a stale entry fails too for
+ESLint and knip).
+
+| Area | Tool (pinned in CI) | Run locally | Baseline |
+| --- | --- | --- | --- |
+| TypeScript | ESLint with typescript-eslint `strictTypeChecked` | `yarn lint` | `eslint-suppressions.json` (`yarn lint --prune-suppressions` after a fix) |
+| TypeScript | `tsc` (`strict`, `noUncheckedIndexedAccess`) | `yarn typecheck` | none |
+| All workspaces | knip 6.45.1 (unused files, exports, dependencies) | `yarn knip` | entries in `knip.jsonc` |
+| Kotlin | ktlint 1.8.0 | `ktlint "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**"` | none |
+| Kotlin | detekt 1.23.8 | see the `lint` job in `.github/workflows/ci.yml` | `detekt-baseline.xml` |
+| Android | Android Lint | `example/android/gradlew -p example/android :react-native-remote-compose:lintDebug` | `android/lint-baseline.xml` (`updateLintBaseline`) |
+| Swift | SwiftFormat 0.64.7 | `swiftformat --lint ios` | none |
+| Swift | SwiftLint 0.65.1 | `swiftlint lint --strict` | none |
+| Secrets | gitleaks 8.30.1, whole git history | `gitleaks git --config .gitleaks.toml .` | allowlist in `.gitleaks.toml` |
+| Dependencies | OSV-Scanner | `osv-scanner scan --config=osv-scanner.toml --lockfile=yarn.lock --lockfile=example/Gemfile.lock` | `osv-scanner.toml` |
+
+To regenerate the detekt baseline after a fix, run detekt as in CI with `--create-baseline`.
+
 
 
 ### Scripts
