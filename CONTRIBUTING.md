@@ -80,6 +80,9 @@ in a baseline; fix one and shrink its baseline in the same change. What a baseli
   violation of the same rule in the same file passes if an old one is fixed in the same change.
 - Android Lint and detekt: an entry that no longer matches a finding does not fail (Android Lint
   only prints that it was not found), so remove it with the fix.
+- detekt matches an entry by rule, file name (not path) and signature (the enclosing declaration or
+  the flagged code), not by line. A new finding with the same rule and signature in a file of the same
+  name, such as a second `catch (e: Exception)` in `Main.kt`, is hidden by the old entry.
 - knip fails on an `ignoreDependencies` entry that is no longer needed. A `@knipignore` tag covers
   only the export it is on; knip does not report one left on an export that became used.
 - Android Lint skips the checks whose result changes with no code change (newer versions published,
@@ -100,7 +103,11 @@ in a baseline; fix one and shrink its baseline in the same change. What a baseli
 
 To regenerate the detekt baseline after a fix, run detekt as in CI with `--create-baseline`.
 
-
+Use the versions in the table locally (CI downloads exactly those, checksum-verified; see the `env` of
+the `lint` job in `.github/workflows/ci.yml`). CI runs SwiftLint's statically linked Linux build
+(`swiftlint-static`), which has no SourceKit and skips the rules that need it (such as
+`statement_position`; SwiftFormat covers that one). SwiftLint on macOS runs those rules too, so it can
+report findings CI does not.
 
 ### Bumping AndroidX Remote Compose or rc-players
 
