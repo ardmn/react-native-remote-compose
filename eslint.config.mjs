@@ -15,9 +15,26 @@ const compat = new FlatCompat({
   allConfig: js.configs.all,
 });
 
+// Every @typescript-eslint/* rule, @react-native's and strictTypeChecked's, runs from one plugin
+// instance: typescript-eslint's, pinned in package.json. @react-native's config registers its own
+// (wrapped) copy, and ESLint refuses two plugins under one name, so that copy is removed here. A
+// typescript-eslint bump then never meets an older plugin ("Could not find rule").
+const withoutTsPlugin = ({ plugins, ...config }) => {
+  if (!plugins?.['@typescript-eslint']) {
+    return plugins ? { ...config, plugins } : config;
+  }
+  const { '@typescript-eslint': _, ...rest } = plugins;
+  return { ...config, plugins: rest };
+};
+
 export default defineConfig([
   {
-    extends: fixupConfigRules(compat.extends('@react-native', 'prettier')),
+    plugins: { '@typescript-eslint': tseslint.plugin },
+  },
+  {
+    extends: fixupConfigRules(compat.extends('@react-native', 'prettier')).map(
+      withoutTsPlugin
+    ),
     plugins: { prettier },
     rules: {
       'react/react-in-jsx-scope': 'off',
@@ -27,10 +44,8 @@ export default defineConfig([
   {
     // Type-aware rules for TypeScript. Findings that predate them are recorded in
     // eslint-suppressions.json (ESLint bulk suppressions), so only new code has to pass.
-    // The @typescript-eslint plugin is already registered (wrapped) by @react-native's config
-    // above; registering typescript-eslint's own copy too is an ESLint error, so it is dropped.
     files: ['**/*.{ts,tsx}'],
-    extends: tseslint.configs.strictTypeChecked.map(({ plugins: _, ...config }) => config),
+    extends: tseslint.configs.strictTypeChecked.map(withoutTsPlugin),
     languageOptions: {
       parserOptions: {
         projectService: true,
