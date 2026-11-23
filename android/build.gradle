@@ -66,10 +66,12 @@ android {
     // does out of the box: a warning a newer lint adds must not break an app's build. This repo's CI
     // passes -PremoteComposeStrictLint=true, so any new finding fails here, warnings included.
     abortOnError true
-    warningsAsErrors((project.findProperty("remoteComposeStrictLint") ?: "false").toString().toBoolean())
-    // Checks whose result changes without any change here: they compare against what is published
-    // today (Maven, Google's SDK Index, AGP releases) or against the date.
-    disable += [
+    def strictLint = (project.findProperty("remoteComposeStrictLint") ?: "false").toString().toBoolean()
+    warningsAsErrors strictLint
+    // In strict mode only: checks whose result changes without any change here (they compare against
+    // what is published today — Maven, Google's SDK Index, AGP releases — or against the date). An
+    // app linting the library keeps them, so a dependency the SDK Index flags still warns there.
+    if (strictLint) disable += [
       "GradleDependency",
       "NewerVersionAvailable",
       "AndroidGradlePluginVersion",
