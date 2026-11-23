@@ -187,9 +187,17 @@ jobs:
         run: tools/remote-compose-json/gradlew -p tools/remote-compose-json test installDist --console=plain
 
       - name: Demo documents are up to date with their JSON
+        # A changed .rc fails, and so does a new one that is not committed (a demo JSON added
+        # without its .rc): `git diff` alone does not see untracked files.
         run: |
           yarn documents
           git diff --exit-code -- example-shared/documents/rc
+          untracked=$(git status --porcelain -- example-shared/documents/rc)
+          if [ -n "$untracked" ]; then
+            echo "::error::Generated .rc files are not committed; run yarn documents and commit them:"
+            echo "$untracked"
+            exit 1
+          fi
 
       - name: Android unit tests (host value resolution) and Android Lint (new findings only)
         # Lint's pre-existing findings are in android/lint-baseline.xml. remoteComposeStrictLint makes
