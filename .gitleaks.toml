@@ -1,4 +1,4 @@
-# gitleaks: its default rules, run over the whole git history in CI.
+# gitleaks: its default rules, run in CI over every commit reachable from the checked-out HEAD.
 [extend]
 useDefault = true
 
