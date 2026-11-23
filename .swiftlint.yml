@@ -12,3 +12,7 @@ opening_brace:
 line_length:
   # SwiftFormat's --maxwidth.
   warning: 110
+trailing_comma:
+  # SwiftFormat's trailingCommas rule adds a comma after the last element of a multi-line
+  # collection literal; require it here too instead of forbidding it.
+  mandatory_comma: true
