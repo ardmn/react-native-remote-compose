@@ -36,6 +36,9 @@ jobs:
       - name: Typecheck files
         run: yarn typecheck
 
+      - name: Unused files, exports and dependencies (knip)
+        run: yarn knip
+
       - name: Native contract is generated from the Codegen spec
         run: yarn contract --check
 
