@@ -60,6 +60,23 @@ jobs:
           echo "3afe89a11120303c73c9bdda3d8fe558dd9070a6937d27819ddc04b275381245  /tmp/detekt.jar" | sha256sum -c -
           java -jar /tmp/detekt.jar --build-upon-default-config --config detekt.yml --baseline detekt-baseline.xml --input android/src,tools/remote-compose-json/src --excludes '**/contract/**'
 
+      - name: Format Swift (SwiftFormat --lint, checksum-pinned)
+        # The formatter lefthook runs before each commit, so a commit made without hooks is caught too.
+        run: |
+          curl -sSfL -o /tmp/swiftformat.zip https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.7/swiftformat_linux.zip
+          echo "819aea026e1c630f46b234ed84481e56d9eb3cfe7024cd51b1af55169c8e13bb  /tmp/swiftformat.zip" | sha256sum -c -
+          unzip -q -o /tmp/swiftformat.zip -d /tmp/swiftformat
+          /tmp/swiftformat/swiftformat_linux --lint ios
+
+      - name: Lint Swift (SwiftLint, checksum-pinned)
+        # The statically linked Linux build runs on this runner without a Swift toolchain. It skips
+        # the few rules that need SourceKit (statement_position; SwiftFormat covers that one).
+        run: |
+          curl -sSfL -o /tmp/swiftlint.zip https://github.com/realm/SwiftLint/releases/download/0.65.1/swiftlint_linux_amd64.zip
+          echo "caeed6f4a679c35539ffaf124f6c4ab4a8416917f7d8796279dc52b74026059d  /tmp/swiftlint.zip" | sha256sum -c -
+          unzip -q -o /tmp/swiftlint.zip -d /tmp/swiftlint
+          /tmp/swiftlint/swiftlint-static lint --strict --no-cache
+
   supply-chain:
     # Google's reusable workflow (the action alone is not meant to be used directly). No SARIF
     # upload: Code Scanning needs GitHub Advanced Security on a private repository.
