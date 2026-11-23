@@ -1,0 +1,7 @@
+# gitleaks: its default rules, run over the whole git history in CI.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "CocoaPods lockfiles: each pod's SPEC CHECKSUMS entry is a SHA-1, which the generic-api-key rule reads as a key."
+paths = ['''(^|/)Podfile\.lock$''']
