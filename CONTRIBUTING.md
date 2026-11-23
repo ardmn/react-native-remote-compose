@@ -98,7 +98,7 @@ in a baseline; fix one and shrink its baseline in the same change. What a baseli
 | Android | Android Lint | `example/android/gradlew -p example/android :react-native-remote-compose:lintDebug -PremoteComposeStrictLint=true` | `android/lint-baseline.xml` (`updateLintBaseline`) |
 | Swift | SwiftFormat 0.64.7 | `swiftformat --lint ios` | none |
 | Swift | SwiftLint 0.65.1 | `swiftlint lint --strict` | none |
-| Secrets | gitleaks 8.30.1, every commit reachable from `HEAD` | `gitleaks git --config .gitleaks.toml --log-opts=HEAD .` | allowlist in `.gitleaks.toml` |
+| Secrets | gitleaks 8.30.1, every commit reachable from `HEAD` | `gitleaks git --config .gitleaks.toml --log-opts="--diff-merges=separate HEAD" .` | allowlist in `.gitleaks.toml` |
 | Dependencies | OSV-Scanner | `osv-scanner scan --config=osv-scanner.toml --lockfile=yarn.lock --lockfile=example/Gemfile.lock` | `osv-scanner.toml` |
 
 To regenerate the detekt baseline after a fix, run detekt as in CI with `--create-baseline`.
