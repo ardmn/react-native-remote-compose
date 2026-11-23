@@ -22,15 +22,16 @@
         "@babel/runtime",
         // Only referenced from a JSDoc type in metro.config.js; provided by @react-native/metro-config.
         "metro-config",
-        // knip's Expo plugin asks for it in every app.json; this app does not use Expo.
+        // knip's Expo plugin expects it for any app.json without `updates.enabled: false`; this
+        // app does not use Expo.
         "expo-updates"
       ]
     },
     "example-expo": {
       "ignoreDependencies": [
-        // Pre-existing: TypeScript 7 (tsgo) is installed but no script uses it yet.
-        "@typescript/native",
-        // Pre-existing: app.json sets userInterfaceStyle and the Expo plugin expects these.
+        // knip's Expo plugin expects expo-system-ui because app.json sets userInterfaceStyle, and
+        // expo-updates because app.json does not set `updates.enabled: false`. The app uses
+        // neither.
         "expo-system-ui",
         "expo-updates"
       ]
