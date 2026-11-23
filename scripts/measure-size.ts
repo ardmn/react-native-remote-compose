@@ -88,7 +88,9 @@ function previousRows(): Record<string, Row> {
 const rows = previousRows();
 
 /** Saved after every build, so a later failure keeps what was measured. */
-const save = () => writeFileSync(RAW, JSON.stringify(rows, null, 2));
+const save = () => {
+  writeFileSync(RAW, JSON.stringify(rows, null, 2));
+};
 
 const baselineEnv = (variant: Variant) => ({
   RC_SIZE_BASELINE: variant === 'without' ? '1' : '0',

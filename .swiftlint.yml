@@ -1,0 +1,18 @@
+# SwiftLint: its default rules, adjusted where they would disagree with SwiftFormat (.swiftformat),
+# which owns formatting. Same scope as SwiftFormat: the library, not the generated contract.
+included:
+  - ios
+excluded:
+  - ios/Contract
+opening_brace:
+  # SwiftFormat (--wraparguments before-first) puts the brace of a wrapped header on its own line.
+  ignore_multiline_type_headers: true
+  ignore_multiline_statement_conditions: true
+  ignore_multiline_function_signatures: true
+line_length:
+  # SwiftFormat's --maxwidth.
+  warning: 110
+trailing_comma:
+  # SwiftFormat's trailingCommas rule adds a comma after the last element of a multi-line
+  # collection literal; require it here too instead of forbidding it.
+  mandatory_comma: true

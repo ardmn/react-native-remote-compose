@@ -23,6 +23,19 @@ jobs:
   lint:
     runs-on: ubuntu-latest
 
+    # Downloaded linters: one place for each version and the sha256 of its release file. The
+    # files are cached under these values, and every run checks the checksum, cached or not.
+    env:
+      TOOLS_DIR: /home/runner/.cache/ci-tools
+      KTLINT_VERSION: 1.8.0
+      KTLINT_SHA256: a3fd620207d5c40da6ca789b95e7f823c54e854b7fade7f613e91096a3706d75
+      DETEKT_VERSION: 1.23.8
+      DETEKT_SHA256: 3afe89a11120303c73c9bdda3d8fe558dd9070a6937d27819ddc04b275381245
+      SWIFTFORMAT_VERSION: 0.64.7
+      SWIFTFORMAT_SHA256: 819aea026e1c630f46b234ed84481e56d9eb3cfe7024cd51b1af55169c8e13bb
+      SWIFTLINT_VERSION: 0.65.1
+      SWIFTLINT_SHA256: caeed6f4a679c35539ffaf124f6c4ab4a8416917f7d8796279dc52b74026059d
+
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,11 +43,51 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Install JDK (ktlint, detekt)
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # One cache per tool, keyed by its checksum: bumping one tool re-downloads only that one. Each
+      # is saved even when a later step fails (a lint finding is the common failure), and only a
+      # file that passed its checksum is ever written to the cached path.
+      - name: Restore cached ktlint
+        id: cache-ktlint
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/ktlint-${{ env.KTLINT_VERSION }}
+          key: ci-tools-${{ runner.os }}-ktlint-${{ env.KTLINT_SHA256 }}
+
+      - name: Restore cached detekt
+        id: cache-detekt
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/detekt-cli-${{ env.DETEKT_VERSION }}-all.jar
+          key: ci-tools-${{ runner.os }}-detekt-${{ env.DETEKT_SHA256 }}
+
+      - name: Restore cached SwiftFormat
+        id: cache-swiftformat
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/swiftformat-${{ env.SWIFTFORMAT_VERSION }}-linux.zip
+          key: ci-tools-${{ runner.os }}-swiftformat-${{ env.SWIFTFORMAT_SHA256 }}
+
+      - name: Restore cached SwiftLint
+        id: cache-swiftlint
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/swiftlint-${{ env.SWIFTLINT_VERSION }}-linux-amd64.zip
+          key: ci-tools-${{ runner.os }}-swiftlint-${{ env.SWIFTLINT_SHA256 }}
+
       - name: Lint files
         run: yarn lint
 
       - name: Typecheck files
         run: yarn typecheck
+
+      - name: Unused files, exports and dependencies (knip)
+        run: yarn knip
 
       - name: Native contract is generated from the Codegen spec
         run: yarn contract --check
@@ -47,10 +100,113 @@ jobs:
 
       - name: Lint Kotlin (ktlint, checksum-pinned)
         run: |
-          curl -sSfL -o /tmp/ktlint https://github.com/pinterest/ktlint/releases/download/1.8.0/ktlint
-          echo "a3fd620207d5c40da6ca789b95e7f823c54e854b7fade7f613e91096a3706d75  /tmp/ktlint" | sha256sum -c -
-          chmod +x /tmp/ktlint
-          /tmp/ktlint "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**" "tools/remote-compose-json/**/*.kt" "tools/remote-compose-json/*.kts"
+          mkdir -p "$TOOLS_DIR"
+          tool="$TOOLS_DIR/ktlint-$KTLINT_VERSION"
+          [ -f "$tool" ] || { curl -sSfL -o "$tool.part" "https://github.com/pinterest/ktlint/releases/download/$KTLINT_VERSION/ktlint" && echo "$KTLINT_SHA256  $tool.part" | sha256sum -c - && mv "$tool.part" "$tool"; }
+          echo "$KTLINT_SHA256  $tool" | sha256sum -c -
+          chmod +x "$tool"
+          "$tool" "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**" "tools/remote-compose-json/**/*.kt" "tools/remote-compose-json/*.kts"
+
+      - name: Static analysis for Kotlin (detekt, checksum-pinned, new findings only)
+        # Maven Central's artifact and the sha256 Central publishes for it. Pre-existing findings
+        # are in detekt-baseline.xml.
+        run: |
+          mkdir -p "$TOOLS_DIR"
+          tool="$TOOLS_DIR/detekt-cli-$DETEKT_VERSION-all.jar"
+          [ -f "$tool" ] || { curl -sSfL -o "$tool.part" "https://repo1.maven.org/maven2/io/gitlab/arturbosch/detekt/detekt-cli/$DETEKT_VERSION/detekt-cli-$DETEKT_VERSION-all.jar" && echo "$DETEKT_SHA256  $tool.part" | sha256sum -c - && mv "$tool.part" "$tool"; }
+          echo "$DETEKT_SHA256  $tool" | sha256sum -c -
+          java -jar "$tool" --build-upon-default-config --config detekt.yml --baseline detekt-baseline.xml --input android/src,tools/remote-compose-json/src --excludes '**/contract/**'
+
+      - name: Format Swift (SwiftFormat --lint, checksum-pinned)
+        # The formatter lefthook runs before each commit, so a commit made without hooks is caught too.
+        run: |
+          mkdir -p "$TOOLS_DIR"
+          archive="$TOOLS_DIR/swiftformat-$SWIFTFORMAT_VERSION-linux.zip"
+          [ -f "$archive" ] || { curl -sSfL -o "$archive.part" "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat_linux.zip" && echo "$SWIFTFORMAT_SHA256  $archive.part" | sha256sum -c - && mv "$archive.part" "$archive"; }
+          echo "$SWIFTFORMAT_SHA256  $archive" | sha256sum -c -
+          unzip -q -o "$archive" -d "$RUNNER_TEMP/swiftformat"
+          "$RUNNER_TEMP/swiftformat/swiftformat_linux" --lint ios
+
+      - name: Lint Swift (SwiftLint, checksum-pinned)
+        # The statically linked Linux build runs on this runner without a Swift toolchain. It skips
+        # the few rules that need SourceKit (statement_position; SwiftFormat covers that one).
+        run: |
+          mkdir -p "$TOOLS_DIR"
+          archive="$TOOLS_DIR/swiftlint-$SWIFTLINT_VERSION-linux-amd64.zip"
+          [ -f "$archive" ] || { curl -sSfL -o "$archive.part" "https://github.com/realm/SwiftLint/releases/download/$SWIFTLINT_VERSION/swiftlint_linux_amd64.zip" && echo "$SWIFTLINT_SHA256  $archive.part" | sha256sum -c - && mv "$archive.part" "$archive"; }
+          echo "$SWIFTLINT_SHA256  $archive" | sha256sum -c -
+          unzip -q -o "$archive" -d "$RUNNER_TEMP/swiftlint"
+          "$RUNNER_TEMP/swiftlint/swiftlint-static" lint --strict --no-cache
+
+      - name: Save downloaded ktlint to the cache
+        if: always() && steps.cache-ktlint.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/ktlint-${{ env.KTLINT_VERSION }}
+          key: ci-tools-${{ runner.os }}-ktlint-${{ env.KTLINT_SHA256 }}
+
+      - name: Save downloaded detekt to the cache
+        if: always() && steps.cache-detekt.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/detekt-cli-${{ env.DETEKT_VERSION }}-all.jar
+          key: ci-tools-${{ runner.os }}-detekt-${{ env.DETEKT_SHA256 }}
+
+      - name: Save downloaded SwiftFormat to the cache
+        if: always() && steps.cache-swiftformat.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/swiftformat-${{ env.SWIFTFORMAT_VERSION }}-linux.zip
+          key: ci-tools-${{ runner.os }}-swiftformat-${{ env.SWIFTFORMAT_SHA256 }}
+
+      - name: Save downloaded SwiftLint to the cache
+        if: always() && steps.cache-swiftlint.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/swiftlint-${{ env.SWIFTLINT_VERSION }}-linux-amd64.zip
+          key: ci-tools-${{ runner.os }}-swiftlint-${{ env.SWIFTLINT_SHA256 }}
+
+  secrets:
+    runs-on: ubuntu-latest
+
+    env:
+      TOOLS_DIR: /home/runner/.cache/ci-tools
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # every commit, not only the tip: a secret removed later is still leaked
+
+      - name: Restore cached gitleaks
+        id: cache-gitleaks
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/gitleaks_${{ env.GITLEAKS_VERSION }}_linux_x64.tar.gz
+          key: ci-tools-${{ runner.os }}-gitleaks-${{ env.GITLEAKS_SHA256 }}
+
+      - name: Scan the git history for secrets (gitleaks, checksum-pinned)
+        # The CLI, pinned like the other tools; gitleaks-action needs a license key on organisation repos.
+        run: |
+          mkdir -p "$TOOLS_DIR"
+          archive="$TOOLS_DIR/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          [ -f "$archive" ] || { curl -sSfL -o "$archive.part" "https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" && echo "$GITLEAKS_SHA256  $archive.part" | sha256sum -c - && mv "$archive.part" "$archive"; }
+          echo "$GITLEAKS_SHA256  $archive" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+          # --log-opts: HEAD limits the scan to the checked-out commit's history (without it gitleaks
+          # runs `git log --all`, and fetch-depth 0 fetches every branch, so a key on any stale branch
+          # would fail every run); --diff-merges=separate also scans what a merge commit adds itself
+          # (a conflict resolution), which plain `git log -p` skips.
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --config .gitleaks.toml --log-opts="--diff-merges=separate HEAD" .
+
+      - name: Save downloaded gitleaks to the cache
+        if: always() && steps.cache-gitleaks.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TOOLS_DIR }}/gitleaks_${{ env.GITLEAKS_VERSION }}_linux_x64.tar.gz
+          key: ci-tools-${{ runner.os }}-gitleaks-${{ env.GITLEAKS_SHA256 }}
 
   supply-chain:
     # Google's reusable workflow (the action alone is not meant to be used directly). No SARIF
@@ -93,12 +249,22 @@ jobs:
         run: tools/remote-compose-json/gradlew -p tools/remote-compose-json test installDist --console=plain
 
       - name: Demo documents are up to date with their JSON
+        # A changed .rc fails, and so does a new one that is not committed (a demo JSON added
+        # without its .rc): `git diff` alone does not see untracked files.
         run: |
           yarn documents
           git diff --exit-code -- example-shared/documents/rc
+          untracked=$(git status --porcelain -- example-shared/documents/rc)
+          if [ -n "$untracked" ]; then
+            echo "::error::Generated .rc files are not committed; run yarn documents and commit them:"
+            echo "$untracked"
+            exit 1
+          fi
 
-      - name: Android unit tests (host value resolution)
-        run: example/android/gradlew -p example/android :react-native-remote-compose:testDebugUnitTest --console=plain
+      - name: Android unit tests (host value resolution) and Android Lint (new findings only)
+        # Lint's pre-existing findings are in android/lint-baseline.xml. remoteComposeStrictLint makes
+        # warnings fail here only; apps that lint the library keep lint's default (errors only).
+        run: example/android/gradlew -p example/android :react-native-remote-compose:testDebugUnitTest :react-native-remote-compose:lintDebug -PremoteComposeStrictLint=true --console=plain
 
   build-library:
     runs-on: ubuntu-latest

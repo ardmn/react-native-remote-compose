@@ -106,7 +106,11 @@ export function PerformanceScreen({
     setRunning(true);
     setReport(null);
     setMounted(false);
-    await new Promise<void>((resolve) => setTimeout(() => resolve(), 300));
+    await new Promise<void>((resolve) =>
+      setTimeout(() => {
+        resolve();
+      }, 300)
+    );
     loads.current = [];
 
     // 0. Baseline: the same measurements with no document on screen, so the numbers below can be
@@ -185,7 +189,12 @@ export function PerformanceScreen({
             label={running ? 'running…' : 'Run'}
             onPress={run}
           />
-          <Button label="unmount" onPress={() => setMounted(false)} />
+          <Button
+            label="unmount"
+            onPress={() => {
+              setMounted(false);
+            }}
+          />
         </Row>
         {report ? <Mono>{JSON.stringify(report, null, 2)}</Mono> : null}
       </Section>

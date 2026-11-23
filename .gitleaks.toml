@@ -1,0 +1,13 @@
+# gitleaks: its default rules, run in CI over every commit reachable from the checked-out HEAD.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "CocoaPods lockfiles: each pod's SPEC CHECKSUMS entry is a SHA-1, which the generic-api-key rule reads as a key."
+# Only that rule, only in a Podfile.lock, and only on a `<pod>: <40 hex>` checksum line: any other
+# secret in a Podfile.lock, or another rule's finding there, is still reported.
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)Podfile\.lock$''']
+regexTarget = "line"
+regexes = ['''^\s*[A-Za-z0-9_.+/-]+: [0-9a-f]{40}\s*$''']

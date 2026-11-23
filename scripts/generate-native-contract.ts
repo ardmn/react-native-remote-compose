@@ -234,7 +234,9 @@ function buildContract(
     direction:
       { direction: 'toNative'; default: string } | { direction: 'toJs' }
   ): EnumModel => {
-    values.forEach((value) => checkIdentifier(key, value));
+    values.forEach((value) => {
+      checkIdentifier(key, value);
+    });
     const model: EnumModel = {
       key,
       name: nameFor(key),

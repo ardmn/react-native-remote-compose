@@ -1,9 +1,9 @@
+type PerfStats = { avg: number; max: number };
+
 /**
  * What the Performance screen measures and posts to `yarn measure:perf`. One type for both sides,
  * so the script reads exactly what the app sends.
  */
-export type PerfStats = { avg: number; max: number };
-
 export type PerfReport = {
   platform: string;
   players: number;

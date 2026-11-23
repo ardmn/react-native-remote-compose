@@ -66,8 +66,12 @@ export function DemoApp({ title }: { title: string }) {
       Platform.OS === 'ios' ? Settings.get('rcdemoLink') : undefined;
     if (typeof launchLink === 'string' && launchLink) apply(launchLink);
     else Linking.getInitialURL().then(apply);
-    const sub = Linking.addEventListener('url', ({ url }) => apply(url));
-    return () => sub.remove();
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      apply(url);
+    });
+    return () => {
+      sub.remove();
+    };
   }, []);
 
   return (
@@ -82,7 +86,9 @@ export function DemoApp({ title }: { title: string }) {
                 key={t}
                 label={LABELS[t]}
                 selected={t === tab}
-                onPress={() => setTab(t)}
+                onPress={() => {
+                  setTab(t);
+                }}
               />
             ))}
           </View>

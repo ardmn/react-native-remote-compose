@@ -143,19 +143,17 @@ const link = `rcdemo://perf?autorun=1&report=${encodeURIComponent(`http://127.0.
 
 function nextResult(): Promise<PerfReport> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () =>
-        reject(
-          new Error(
-            `No result from the app within ${RESULT_TIMEOUT_MS / 1000} s. Check that it launched on the Performance tab, ` +
-              `and look for RC_PERF_POST_FAILED in its log (Android: adb logcat; iOS: the simulator's console). ` +
-              (platform === 'android'
-                ? `adb reverse tcp:${port} must be in place.`
-                : '')
-          )
-        ),
-      RESULT_TIMEOUT_MS
-    );
+    const timer = setTimeout(() => {
+      reject(
+        new Error(
+          `No result from the app within ${RESULT_TIMEOUT_MS / 1000} s. Check that it launched on the Performance tab, ` +
+            `and look for RC_PERF_POST_FAILED in its log (Android: adb logcat; iOS: the simulator's console). ` +
+            (platform === 'android'
+              ? `adb reverse tcp:${port} must be in place.`
+              : '')
+        )
+      );
+    }, RESULT_TIMEOUT_MS);
     failRun = (error) => {
       clearTimeout(timer);
       reject(error);

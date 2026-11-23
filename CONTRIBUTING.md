@@ -67,7 +67,63 @@ To fix formatting errors, run the following:
 yarn lint --fix
 ```
 
+### Static analysis
 
+CI runs these checks and fails on any new finding, warnings included (`yarn lint` runs with
+`--max-warnings 0`, Android Lint with `-PremoteComposeStrictLint=true`, which turns on
+`warningsAsErrors`). Without that property Android Lint fails on errors only: `android/` ships in the
+npm package, and an app that lints the library with a newer lint must not fail on a new warning. Findings that predate a tool are recorded
+in a baseline; fix one and shrink its baseline in the same change. What a baseline matches differs:
+
+- ESLint's `eslint-suppressions.json` counts violations per file and rule, not per location. A fixed
+  violation whose count is not lowered fails (`yarn lint --prune-suppressions` lowers it), but a new
+  violation of the same rule in the same file passes if an old one is fixed in the same change.
+- Android Lint and detekt: an entry that no longer matches a finding does not fail (Android Lint
+  only prints that it was not found), so remove it with the fix.
+- detekt matches an entry by rule, file name (not path) and signature (the enclosing declaration or
+  the flagged code), not by line. A new finding with the same rule and signature in a file of the same
+  name, such as a second `catch (e: Exception)` in `Main.kt`, is hidden by the old entry.
+- knip fails on an `ignoreDependencies` entry that is no longer needed. A `@knipignore` tag covers
+  only the export it is on; knip does not report one left on an export that became used.
+- Android Lint skips the checks whose result changes with no code change (newer versions published,
+  Google's SDK Index, the date); see `lint` in `android/build.gradle`.
+
+| Area | Tool (pinned in CI) | Run locally | Baseline |
+| --- | --- | --- | --- |
+| TypeScript | ESLint with typescript-eslint `strictTypeChecked` | `yarn lint` | `eslint-suppressions.json` (`yarn lint --prune-suppressions` after a fix) |
+| TypeScript | `tsc` (`strict`, `noUncheckedIndexedAccess`) | `yarn typecheck` | none |
+| All workspaces | knip 6.45.1 (unused files, exports, dependencies) | `yarn knip` | `ignoreDependencies` in `knip.jsonc`; `@knipignore` on single exports |
+| Kotlin | ktlint 1.8.0 | `ktlint "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**" "tools/remote-compose-json/**/*.kt" "tools/remote-compose-json/*.kts"` | none |
+| Kotlin | detekt 1.23.8 | see the `lint` job in `.github/workflows/ci.yml` | `detekt-baseline.xml` |
+| Android | Android Lint | `example/android/gradlew -p example/android :react-native-remote-compose:lintDebug -PremoteComposeStrictLint=true` | `android/lint-baseline.xml` (`updateLintBaseline`) |
+| Swift | SwiftFormat 0.64.7 | `swiftformat --lint ios` | none |
+| Swift | SwiftLint 0.65.1 | `swiftlint lint --strict` | none |
+| Secrets | gitleaks 8.30.1, every commit reachable from `HEAD` | `gitleaks git --config .gitleaks.toml --log-opts="--diff-merges=separate HEAD" .` | allowlist in `.gitleaks.toml` |
+| Dependencies | OSV-Scanner | `osv-scanner scan --config=osv-scanner.toml --lockfile=yarn.lock --lockfile=example/Gemfile.lock` | `osv-scanner.toml` |
+
+To regenerate the detekt baseline after a fix, run detekt as in CI with `--create-baseline`.
+
+Use the versions in the table locally (CI downloads exactly those, checksum-verified; see the `env` of
+the `lint` job in `.github/workflows/ci.yml`). CI runs SwiftLint's statically linked Linux build
+(`swiftlint-static`), which has no SourceKit and skips the rules that need it (such as
+`statement_position`; SwiftFormat covers that one). SwiftLint on macOS runs those rules too, so it can
+report findings CI does not.
+
+### Bumping AndroidX Remote Compose or rc-players
+
+Dependabot proposes npm, Gradle, Bundler and GitHub Actions updates, but not these two:
+`android/versions.properties` is not a file it reads, and the iOS pins are not in a Swift package
+manifest. Bump them by hand, in one change:
+
+- `androidx.compose.remote:remote-creation-core`: `androidxRemoteVersion` in
+  `android/versions.properties` (library and CLI), and the tested version in the README ("`{ json }`
+  relies on an AndroidX-internal parser"). Then run `yarn documents` and review any changed `.rc`.
+- rc-players: `rcPlayersVersion` in `android/versions.properties` (Android and CLI);
+  `rc_players_version` in `RemoteCompose.podspec` (iOS); the rc-players pin in
+  `example/ios/RemoteComposeExample.xcworkspace/xcshareddata/swiftpm/Package.resolved` (version and
+  revision; Xcode rewrites it when it resolves packages, e.g.
+  `xcodebuild -resolvePackageDependencies -workspace example/ios/RemoteComposeExample.xcworkspace -scheme RemoteComposeExample`); and the tag in the fixtures URL in
+  `example-shared/src/documents.ts`.
 
 ### Scripts
 

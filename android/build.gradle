@@ -10,13 +10,24 @@ buildscript {
   }
 }
 
+// Versions the JSON CLI (tools/remote-compose-json) uses too live in versions.properties.
+def sharedVersions = new Properties()
+file("versions.properties").withInputStream { sharedVersions.load(it) }
+def sharedVersion = { name ->
+  def value = sharedVersions.getProperty(name)
+  if (value == null) {
+    throw new GradleException("${name} is missing from ${file('versions.properties')}")
+  }
+  return value
+}
+
 ext.RemoteCompose = [
   minSdkVersion: 24,
   compileSdkVersion: 37,
-  rcPlayersVersion: "3.8.0",
+  rcPlayersVersion: sharedVersion("rcPlayersVersion"),
   // The Compose Multiplatform release rc-player-compose is built against (its POM pins it).
   composeMultiplatformVersion: "1.12.2",
-  androidxRemoteVersion: "1.0.0-alpha23",
+  androidxRemoteVersion: sharedVersion("androidxRemoteVersion"),
 ]
 
 ext.getExtOrDefault = { prop ->
@@ -50,8 +61,33 @@ android {
   }
 
   lint {
+    // This file ships in the npm package, so an app running `./gradlew lint` (or check/build) lints
+    // the library with this block and its own AGP's checks. By default only errors fail, as lint
+    // does out of the box: a warning a newer lint adds must not break an app's build. This repo's CI
+    // passes -PremoteComposeStrictLint=true, so any new finding fails here, warnings included.
     abortOnError true
-    warningsAsErrors false
+    def strictLint = (project.findProperty("remoteComposeStrictLint") ?: "false").toString().toBoolean()
+    warningsAsErrors strictLint
+    // In strict mode only: checks whose result changes without any change here (they compare against
+    // what is published today — Maven, Google's SDK Index, AGP releases — or against the date). An
+    // app linting the library keeps them, so a dependency the SDK Index flags still warns there.
+    if (strictLint) disable += [
+      "GradleDependency",
+      "NewerVersionAvailable",
+      "AndroidGradlePluginVersion",
+      "OldTargetApi",
+      "ExpiredTargetSdkVersion",
+      "ExpiringTargetSdkVersion",
+      "OutdatedLibrary",
+      "RiskyLibrary",
+      "PlaySdkIndexNonCompliant",
+      "PlaySdkIndexVulnerability",
+      "PlaySdkIndexGenericIssues",
+      "PlaySdkIndexDeprecated",
+    ]
+    // Findings that predate running lint in CI; only new ones fail. Regenerate with
+    // `:react-native-remote-compose:updateLintBaseline` after fixing one.
+    baseline = file("lint-baseline.xml")
   }
 }
 
@@ -61,7 +97,8 @@ dependencies {
   // The player: rc-players' Compose Multiplatform renderer (the same one the iOS side ships).
   implementation "ee.schimke.composeai:rc-player-compose:${getExtOrDefault('rcPlayersVersion')}"
   implementation "org.jetbrains.compose.foundation:foundation:${getExtOrDefault('composeMultiplatformVersion')}"
-  // AndroidX's authoring-JSON parser (RemoteComposeJsonParser), for `{ json }` sources.
+  // AndroidX's authoring-JSON parser (RemoteComposeJsonParser), for `{ json }` sources. It is
+  // AndroidX-internal (@RestrictTo): the README ("Authoring documents") says what that means for apps.
   implementation "androidx.compose.remote:remote-creation-core:${getExtOrDefault('androidxRemoteVersion')}"
 
   testImplementation "junit:junit:4.13.2"

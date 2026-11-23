@@ -40,7 +40,7 @@ const env = (name: string): string | undefined =>
   process.env[name] || undefined;
 
 /** The Android SDK: ANDROID_HOME (or the older ANDROID_SDK_ROOT), else Android Studio's default. */
-export const ANDROID_SDK =
+const ANDROID_SDK =
   env('ANDROID_HOME') ??
   env('ANDROID_SDK_ROOT') ??
   (IS_WINDOWS
@@ -106,7 +106,7 @@ export function run(
     if (result.status !== 0) {
       const detail = options.log
         ? `see ${options.log}`
-        : `${result.stderr || result.stdout}`.slice(-2000);
+        : (result.stderr || result.stdout).slice(-2000);
       throw new Error(`${shown} exited with ${result.status} — ${detail}`);
     }
     return logFd === undefined ? result.stdout : '';

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://unpkg.com/knip@6.45.1/schema-jsonc.json",
+  // Findings that predate knip, kept so CI fails only on new ones. Remove an entry once fixed:
+  // `--treat-config-hints-as-errors` fails on an ignoreDependencies entry that is no longer needed.
+  // Single exports that are unused on purpose carry a `@knipignore` JSDoc tag instead of a file-wide
+  // ignore, so a new unused export in the same file is still reported. knip does not report a tag
+  // left on an export that became used.
+  "tags": ["-knipignore"],
+  "workspaces": {
+    ".": {
+      "ignoreDependencies": [
+        // Loaded by name through FlatCompat in eslint.config.mjs, which knip cannot follow.
+        "@react-native/eslint-config",
+        // A peer dependency of @react-native/eslint-config.
+        "eslint-plugin-ft-flow"
+      ]
+    },
+    "example": {
+      "ignoreDependencies": [
+        // React Native template dependencies, used by Babel transforms knip does not trace.
+        "@babel/preset-env",
+        "@babel/runtime",
+        // Only referenced from a JSDoc type in metro.config.js; provided by @react-native/metro-config.
+        "metro-config",
+        // knip's Expo plugin expects it for any app.json without `updates.enabled: false`; this
+        // app does not use Expo.
+        "expo-updates"
+      ]
+    },
+    "example-expo": {
+      "ignoreDependencies": [
+        // knip's Expo plugin expects expo-system-ui because app.json sets userInterfaceStyle, and
+        // expo-updates because app.json does not set `updates.enabled: false`. The app uses
+        // neither.
+        "expo-system-ui",
+        "expo-updates"
+      ]
+    }
+  }
+}

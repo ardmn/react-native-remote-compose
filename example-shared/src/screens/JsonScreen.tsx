@@ -43,20 +43,29 @@ export function JsonScreen() {
           style={styles.player}
           source={supported ? { json: pulseJson } : pulseRc}
           namedValues={{ speed, label }}
-          onAction={(e) =>
-            e.kind === 'named' &&
-            setLabel(`Tapped ${e.name} at ${new Date().toLocaleTimeString()}`)
-          }
-          onError={(e) => setStatus(`error ${e.code}: ${e.message}`)}
+          onAction={(e) => {
+            if (e.kind === 'named') {
+              setLabel(
+                `Tapped ${e.name} at ${new Date().toLocaleTimeString()}`
+              );
+            }
+          }}
+          onError={(e) => {
+            setStatus(`error ${e.code}: ${e.message}`);
+          }}
         />
         <Row>
           <Button
             label="slower"
-            onPress={() => setSpeed((s) => Math.max(0.5, s / 2))}
+            onPress={() => {
+              setSpeed((s) => Math.max(0.5, s / 2));
+            }}
           />
           <Button
             label="faster"
-            onPress={() => setSpeed((s) => Math.min(16, s * 2))}
+            onPress={() => {
+              setSpeed((s) => Math.min(16, s * 2));
+            }}
           />
           <Mono>speed = {speed}</Mono>
         </Row>
@@ -76,7 +85,9 @@ export function JsonScreen() {
           <RemoteComposeView
             style={[styles.player, styles.playerShort]}
             source={{ json: pulseJson }}
-            onError={(e) => setStatus(`expected → ${e.code}: ${e.message}`)}
+            onError={(e) => {
+              setStatus(`expected → ${e.code}: ${e.message}`);
+            }}
           />
         </Section>
       ) : null}
