@@ -9,7 +9,9 @@ pre-commit:
   commands:
     lint:
       glob: "*.{js,ts,tsx}"
-      run: yarn eslint --max-warnings 0 {staged_files}
+      # --no-warn-ignored: a staged file under an ESLint-ignored path (tools/, build/) is skipped
+      # instead of warning "File ignored", which --max-warnings 0 would turn into a failure.
+      run: yarn eslint --max-warnings 0 --no-warn-ignored {staged_files}
     types:
       glob: "*.{ts,tsx}"
       run: yarn typecheck
