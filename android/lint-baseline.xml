@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose.remote:remote-creation-core than 1.0.0-alpha23 is available: 1.0.0-alpha24"
+        errorLine1="  implementation &quot;androidx.compose.remote:remote-creation-core:${getExtOrDefault(&apos;androidxRemoteVersion&apos;)}&quot;"
+        errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle"
+            line="68"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="RestrictedApi"
+        message="RemoteComposeJsonParser.parseToByteBuffer can only be called from within the same library group (referenced groupId=`androidx.compose.remote` from groupId=`remotecompose.example`)"
+        errorLine1="        val buffer = RemoteComposeJsonParser.parseToByteBuffer(json)"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/remotecompose/JsonDocuments.kt"
+            line="15"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="ViewConstructor"
+        message="Custom view `RemoteComposeView` is missing constructor used by tools: `(Context)` or `(Context,AttributeSet)` or `(Context,AttributeSet,int)`"
+        errorLine1="class RemoteComposeView(private val reactContext: ThemedReactContext) : FrameLayout(reactContext) {"
+        errorLine2="      ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/remotecompose/RemoteComposeView.kt"
+            line="35"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val uri = Uri.parse(source.uri)"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/remotecompose/DocumentLoader.kt"
+            line="51"
+            column="19"/>
+    </issue>
+
+</issues>

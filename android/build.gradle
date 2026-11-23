@@ -52,6 +52,9 @@ android {
   lint {
     abortOnError true
     warningsAsErrors false
+    // Findings that predate running lint in CI; only new ones fail. Regenerate with
+    // `:react-native-remote-compose:updateLintBaseline` after fixing one.
+    baseline = file("lint-baseline.xml")
   }
 }
 

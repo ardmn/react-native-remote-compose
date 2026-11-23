@@ -105,8 +105,9 @@ jobs:
           yarn documents
           git diff --exit-code -- example-shared/documents/rc
 
-      - name: Android unit tests (host value resolution)
-        run: example/android/gradlew -p example/android :react-native-remote-compose:testDebugUnitTest --console=plain
+      - name: Android unit tests (host value resolution) and Android Lint (new findings only)
+        # Lint's pre-existing findings are in android/lint-baseline.xml.
+        run: example/android/gradlew -p example/android :react-native-remote-compose:testDebugUnitTest :react-native-remote-compose:lintDebug --console=plain
 
   build-library:
     runs-on: ubuntu-latest
