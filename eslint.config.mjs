@@ -17,8 +17,10 @@ const compat = new FlatCompat({
 
 // Every @typescript-eslint/* rule, @react-native's and strictTypeChecked's, runs from one plugin
 // instance: typescript-eslint's, pinned in package.json. @react-native's config registers its own
-// (wrapped) copy, and ESLint refuses two plugins under one name, so that copy is removed here. A
-// typescript-eslint bump then never meets an older plugin ("Could not find rule").
+// (wrapped) copy, and ESLint refuses two plugins under one name, so that copy is removed here.
+// Tradeoff: @react-native/eslint-config's @typescript-eslint/* settings now run against our pinned
+// plugin, not the one it was written for. A typescript-eslint bump that removes or renames a rule
+// it enables still breaks lint ("Could not find rule"); turn that rule off here or bump both.
 const withoutTsPlugin = ({ plugins, ...config }) => {
   if (!plugins?.['@typescript-eslint']) {
     return plugins ? { ...config, plugins } : config;
