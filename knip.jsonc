@@ -1,0 +1,41 @@
+{
+  "$schema": "https://unpkg.com/knip@6.45.1/schema-jsonc.json",
+  // Findings that predate knip, kept so CI fails only on new ones. Remove an entry once fixed;
+  // `yarn knip` reports an entry that no longer matches anything.
+  "workspaces": {
+    ".": {
+      "ignoreDependencies": [
+        // Loaded by name through FlatCompat in eslint.config.mjs, which knip cannot follow.
+        "@react-native/eslint-config",
+        // A peer dependency of @react-native/eslint-config.
+        "eslint-plugin-ft-flow"
+      ]
+    },
+    "example": {
+      "ignoreDependencies": [
+        // React Native template dependencies, used by Babel transforms knip does not trace.
+        "@babel/preset-env",
+        "@babel/runtime",
+        // Only referenced from a JSDoc type in metro.config.js; provided by @react-native/metro-config.
+        "metro-config",
+        // knip's Expo plugin asks for it in every app.json; this app does not use Expo.
+        "expo-updates"
+      ]
+    },
+    "example-expo": {
+      "ignoreDependencies": [
+        // Pre-existing: TypeScript 7 (tsgo) is installed but no script uses it yet.
+        "@typescript/native",
+        // Pre-existing: app.json sets userInterfaceStyle and the Expo plugin expects these.
+        "expo-system-ui",
+        "expo-updates"
+      ]
+    }
+  },
+  "ignoreIssues": {
+    // Compile-time assertions: exported only so noUnusedLocals accepts them.
+    "src/types.ts": ["types"],
+    // Pre-existing: the product card's JSON form is bundled but no screen uses it yet.
+    "example-shared/src/documents.ts": ["exports"]
+  }
+}

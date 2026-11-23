@@ -33,7 +33,7 @@ function reportProblems(value: unknown): string[] {
   ];
 }
 
-export const isPerfReport = (value: unknown): value is PerfReport =>
+const isPerfReport = (value: unknown): value is PerfReport =>
   reportProblems(value).length === 0;
 
 /** The app's report, checked field by field: a missing number fails here, not as an empty row. */
