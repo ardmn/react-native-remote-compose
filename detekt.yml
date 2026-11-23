@@ -1,0 +1,6 @@
+# detekt: applied on top of its default configuration (--build-upon-default-config).
+# Findings that predate detekt are in detekt-baseline.xml; CI fails on any new one.
+naming:
+  FunctionNaming:
+    # Compose's convention, as in .editorconfig for ktlint: composables are PascalCase nouns.
+    ignoreAnnotated: ['Composable']

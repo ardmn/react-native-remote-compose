@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:Main.kt$3</ID>
+    <ID>MaxLineLength:Main.kt$"usage: remote-compose-json in.json out.rc | ${Flags.DIR} in/ out/ | ${Flags.DUMP} doc.rc | ${Flags.ROUNDTRIP} doc.rc"</ID>
+    <ID>SpreadOperator:DocumentLoader.kt$DocumentLoader$(*source.headers.toTypedArray())</ID>
+    <ID>ThrowsCount:DocumentLoader.kt$DocumentLoader$private fun readBody(response: Response, uri: String): ByteArray</ID>
+    <ID>TooGenericExceptionCaught:Main.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:PreparedDocument.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RemoteComposeModule.kt$RemoteComposeModule$e: Exception</ID>
+    <ID>TooManyFunctions:RemoteComposeView.kt$RemoteComposeView : FrameLayout</ID>
+    <ID>TooManyFunctions:RemoteComposeViewManager.kt$RemoteComposeViewManager : SimpleViewManagerRemoteComposeViewManagerInterface</ID>
+  </CurrentIssues>
+</SmellBaseline>

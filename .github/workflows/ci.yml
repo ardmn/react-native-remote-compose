@@ -52,6 +52,14 @@ jobs:
           chmod +x /tmp/ktlint
           /tmp/ktlint "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**" "tools/remote-compose-json/**/*.kt" "tools/remote-compose-json/*.kts"
 
+      - name: Static analysis for Kotlin (detekt, checksum-pinned, new findings only)
+        # Maven Central's artifact and the sha256 Central publishes for it. Pre-existing findings
+        # are in detekt-baseline.xml.
+        run: |
+          curl -sSfL -o /tmp/detekt.jar https://repo1.maven.org/maven2/io/gitlab/arturbosch/detekt/detekt-cli/1.23.8/detekt-cli-1.23.8-all.jar
+          echo "3afe89a11120303c73c9bdda3d8fe558dd9070a6937d27819ddc04b275381245  /tmp/detekt.jar" | sha256sum -c -
+          java -jar /tmp/detekt.jar --build-upon-default-config --config detekt.yml --baseline detekt-baseline.xml --input android/src,tools/remote-compose-json/src --excludes '**/contract/**'
+
   supply-chain:
     # Google's reusable workflow (the action alone is not meant to be used directly). No SARIF
     # upload: Code Scanning needs GitHub Advanced Security on a private repository.
