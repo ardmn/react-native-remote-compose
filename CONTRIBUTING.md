@@ -88,7 +88,7 @@ in a baseline; fix one and shrink its baseline in the same change. What a baseli
 | TypeScript | ESLint with typescript-eslint `strictTypeChecked` | `yarn lint` | `eslint-suppressions.json` (`yarn lint --prune-suppressions` after a fix) |
 | TypeScript | `tsc` (`strict`, `noUncheckedIndexedAccess`) | `yarn typecheck` | none |
 | All workspaces | knip 6.45.1 (unused files, exports, dependencies) | `yarn knip` | `ignoreDependencies` in `knip.jsonc`; `@knipignore` on single exports |
-| Kotlin | ktlint 1.8.0 | `ktlint "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**"` | none |
+| Kotlin | ktlint 1.8.0 | `ktlint "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**" "tools/remote-compose-json/**/*.kt" "tools/remote-compose-json/*.kts"` | none |
 | Kotlin | detekt 1.23.8 | see the `lint` job in `.github/workflows/ci.yml` | `detekt-baseline.xml` |
 | Android | Android Lint | `example/android/gradlew -p example/android :react-native-remote-compose:lintDebug` | `android/lint-baseline.xml` (`updateLintBaseline`) |
 | Swift | SwiftFormat 0.64.7 | `swiftformat --lint ios` | none |
