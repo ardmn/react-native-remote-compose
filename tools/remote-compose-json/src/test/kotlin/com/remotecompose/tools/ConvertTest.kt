@@ -38,10 +38,10 @@ class ConvertTest {
     }
 
     @Test
-    fun `object-form resources are declared in the order they are written, as on a device`() {
-        // Android's org.json keeps insertion order and the parser walks keys(), so ids follow the
-        // JSON. The CLI must do the same, or its .rc files (shipped to iOS) differ from on-device
-        // conversion of the same JSON.
+    fun `object-form resources are declared in JSON insertion order on the JVM parser`() {
+        // The parser walks JSONObject.keys() to assign ids. Android's org.json keeps insertion
+        // order; this checks that the org.json the CLI runs on (com.tdunning:json) does too, so
+        // ids follow the JSON text. It runs on the JVM, not on a device.
         val written = listOf("zebra", "apple", "mango", "kiwi", "banana", "cherry")
         val colors = written.mapIndexed { i, name -> "\"$name\":\"#FF00000$i\"" }.joinToString(",")
         val declared = RcDocumentCodec.decode(
