@@ -43,10 +43,13 @@ export function JsonScreen() {
           style={styles.player}
           source={supported ? { json: pulseJson } : pulseRc}
           namedValues={{ speed, label }}
-          onAction={(e) =>
-            e.kind === 'named' &&
-            setLabel(`Tapped ${e.name} at ${new Date().toLocaleTimeString()}`)
-          }
+          onAction={(e) => {
+            if (e.kind === 'named') {
+              setLabel(
+                `Tapped ${e.name} at ${new Date().toLocaleTimeString()}`
+              );
+            }
+          }}
           onError={(e) => {
             setStatus(`error ${e.code}: ${e.message}`);
           }}

@@ -13,9 +13,6 @@
     }
   },
   "example-shared/src/screens/JsonScreen.tsx": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 1
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 1
     },
