@@ -45,6 +45,10 @@ type NamedValueTypes = {
   string: string;
   color: ColorValue;
 };
+/**
+ * Compile-time check, exported only so `noUnusedLocals` accepts it.
+ * @knipignore
+ */
 export type NamedValueTypesMatchSpec = Assert<
   SameKeys<keyof NamedValueTypes, NativeNamedValueType>
 >;
@@ -69,6 +73,10 @@ export type RemoteComposeNamedActionValue =
   | { valueType: 'float' | 'int'; value: number }
   | { valueType: 'string'; value: string }
   | { valueType: 'floatList'; value: readonly number[] };
+/**
+ * Compile-time check, exported only so `noUnusedLocals` accepts it.
+ * @knipignore
+ */
 export type NamedActionValueMatchesSpec = Assert<
   SameKeys<
     RemoteComposeNamedActionValue['valueType'],

@@ -78,6 +78,8 @@ in a baseline; fix one and shrink its baseline in the same change. What a baseli
   violation of the same rule in the same file passes if an old one is fixed in the same change.
 - Android Lint and detekt match an entry by issue, file and message. An entry that no longer matches
   does not fail (Android Lint only prints that it was not found), so remove it with the fix.
+- knip fails on an `ignoreDependencies` entry that is no longer needed. A `@knipignore` tag covers
+  only the export it is on; knip does not report one left on an export that became used.
 - Android Lint skips the checks whose result changes with no code change (newer versions published,
   Google's SDK Index, the date); see `lint` in `android/build.gradle`.
 
@@ -85,7 +87,7 @@ in a baseline; fix one and shrink its baseline in the same change. What a baseli
 | --- | --- | --- | --- |
 | TypeScript | ESLint with typescript-eslint `strictTypeChecked` | `yarn lint` | `eslint-suppressions.json` (`yarn lint --prune-suppressions` after a fix) |
 | TypeScript | `tsc` (`strict`, `noUncheckedIndexedAccess`) | `yarn typecheck` | none |
-| All workspaces | knip 6.45.1 (unused files, exports, dependencies) | `yarn knip` | entries in `knip.jsonc` |
+| All workspaces | knip 6.45.1 (unused files, exports, dependencies) | `yarn knip` | `ignoreDependencies` in `knip.jsonc`; `@knipignore` on single exports |
 | Kotlin | ktlint 1.8.0 | `ktlint "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**"` | none |
 | Kotlin | detekt 1.23.8 | see the `lint` job in `.github/workflows/ci.yml` | `detekt-baseline.xml` |
 | Android | Android Lint | `example/android/gradlew -p example/android :react-native-remote-compose:lintDebug` | `android/lint-baseline.xml` (`updateLintBaseline`) |

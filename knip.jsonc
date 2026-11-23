@@ -1,7 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6.45.1/schema-jsonc.json",
-  // Findings that predate knip, kept so CI fails only on new ones. Remove an entry once fixed;
-  // `yarn knip` reports an entry that no longer matches anything.
+  // Findings that predate knip, kept so CI fails only on new ones. Remove an entry once fixed:
+  // `--treat-config-hints-as-errors` fails on an ignoreDependencies entry that is no longer needed.
+  // Single exports that are unused on purpose carry a `@knipignore` JSDoc tag instead of a file-wide
+  // ignore, so a new unused export in the same file is still reported. knip does not report a tag
+  // left on an export that became used.
+  "tags": ["-knipignore"],
   "workspaces": {
     ".": {
       "ignoreDependencies": [
@@ -31,11 +35,5 @@
         "expo-updates"
       ]
     }
-  },
-  "ignoreIssues": {
-    // Compile-time assertions: exported only so noUnusedLocals accepts them.
-    "src/types.ts": ["types"],
-    // Pre-existing: the product card's JSON form is bundled but no screen uses it yet.
-    "example-shared/src/documents.ts": ["exports"]
   }
 }

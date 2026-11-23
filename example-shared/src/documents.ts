@@ -5,6 +5,10 @@
  */
 export const productCardRc: number = require('../documents/rc/product_card.rc');
 export const pulseRc: number = require('../documents/rc/pulse.rc');
+/**
+ * Bundled for a JSON-vs-`.rc` comparison that no screen shows yet.
+ * @knipignore
+ */
 export const productCardJson: object = require('../documents/json/product_card.json');
 export const pulseJson: object = require('../documents/json/pulse.json');
 
