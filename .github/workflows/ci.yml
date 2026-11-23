@@ -189,8 +189,9 @@ jobs:
           git diff --exit-code -- example-shared/documents/rc
 
       - name: Android unit tests (host value resolution) and Android Lint (new findings only)
-        # Lint's pre-existing findings are in android/lint-baseline.xml.
-        run: example/android/gradlew -p example/android :react-native-remote-compose:testDebugUnitTest :react-native-remote-compose:lintDebug --console=plain
+        # Lint's pre-existing findings are in android/lint-baseline.xml. remoteComposeStrictLint makes
+        # warnings fail here only; apps that lint the library keep lint's default (errors only).
+        run: example/android/gradlew -p example/android :react-native-remote-compose:testDebugUnitTest :react-native-remote-compose:lintDebug -PremoteComposeStrictLint=true --console=plain
 
   build-library:
     runs-on: ubuntu-latest

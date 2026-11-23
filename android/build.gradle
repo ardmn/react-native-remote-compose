@@ -61,9 +61,12 @@ android {
   }
 
   lint {
-    // Any new finding fails, warnings included.
+    // This file ships in the npm package, so an app running `./gradlew lint` (or check/build) lints
+    // the library with this block and its own AGP's checks. By default only errors fail, as lint
+    // does out of the box: a warning a newer lint adds must not break an app's build. This repo's CI
+    // passes -PremoteComposeStrictLint=true, so any new finding fails here, warnings included.
     abortOnError true
-    warningsAsErrors true
+    warningsAsErrors((project.findProperty("remoteComposeStrictLint") ?: "false").toString().toBoolean())
     // Checks whose result changes without any change here: they compare against what is published
     // today (Maven, Google's SDK Index, AGP releases) or against the date.
     disable += [

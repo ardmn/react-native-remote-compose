@@ -70,7 +70,9 @@ yarn lint --fix
 ### Static analysis
 
 CI runs these checks and fails on any new finding, warnings included (`yarn lint` runs with
-`--max-warnings 0`, Android Lint with `warningsAsErrors`). Findings that predate a tool are recorded
+`--max-warnings 0`, Android Lint with `-PremoteComposeStrictLint=true`, which turns on
+`warningsAsErrors`). Without that property Android Lint fails on errors only: `android/` ships in the
+npm package, and an app that lints the library with a newer lint must not fail on a new warning. Findings that predate a tool are recorded
 in a baseline; fix one and shrink its baseline in the same change. What a baseline matches differs:
 
 - ESLint's `eslint-suppressions.json` counts violations per file and rule, not per location. A fixed
@@ -90,7 +92,7 @@ in a baseline; fix one and shrink its baseline in the same change. What a baseli
 | All workspaces | knip 6.45.1 (unused files, exports, dependencies) | `yarn knip` | `ignoreDependencies` in `knip.jsonc`; `@knipignore` on single exports |
 | Kotlin | ktlint 1.8.0 | `ktlint "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**" "tools/remote-compose-json/**/*.kt" "tools/remote-compose-json/*.kts"` | none |
 | Kotlin | detekt 1.23.8 | see the `lint` job in `.github/workflows/ci.yml` | `detekt-baseline.xml` |
-| Android | Android Lint | `example/android/gradlew -p example/android :react-native-remote-compose:lintDebug` | `android/lint-baseline.xml` (`updateLintBaseline`) |
+| Android | Android Lint | `example/android/gradlew -p example/android :react-native-remote-compose:lintDebug -PremoteComposeStrictLint=true` | `android/lint-baseline.xml` (`updateLintBaseline`) |
 | Swift | SwiftFormat 0.64.7 | `swiftformat --lint ios` | none |
 | Swift | SwiftLint 0.65.1 | `swiftlint lint --strict` | none |
 | Secrets | gitleaks 8.30.1, whole git history | `gitleaks git --config .gitleaks.toml .` | allowlist in `.gitleaks.toml` |
