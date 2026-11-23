@@ -102,6 +102,22 @@ To regenerate the detekt baseline after a fix, run detekt as in CI with `--creat
 
 
 
+### Bumping AndroidX Remote Compose or rc-players
+
+Dependabot proposes npm, Gradle, Bundler and GitHub Actions updates, but not these two:
+`android/versions.properties` is not a file it reads, and the iOS pins are not in a Swift package
+manifest. Bump them by hand, in one change:
+
+- `androidx.compose.remote:remote-creation-core`: `androidxRemoteVersion` in
+  `android/versions.properties` (library and CLI), and the tested version in the README ("`{ json }`
+  relies on an AndroidX-internal parser"). Then run `yarn documents` and review any changed `.rc`.
+- rc-players: `rcPlayersVersion` in `android/versions.properties` (Android and CLI);
+  `rc_players_version` in `RemoteCompose.podspec` (iOS); the rc-players pin in
+  `example/ios/RemoteComposeExample.xcworkspace/xcshareddata/swiftpm/Package.resolved` (version and
+  revision; Xcode rewrites it when it resolves packages, e.g.
+  `xcodebuild -resolvePackageDependencies -workspace example/ios/RemoteComposeExample.xcworkspace -scheme RemoteComposeExample`); and the tag in the fixtures URL in
+  `example-shared/src/documents.ts`.
+
 ### Scripts
 
 The `package.json` file contains various scripts for common tasks:
