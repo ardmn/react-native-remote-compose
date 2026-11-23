@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     kotlin("jvm") version "2.4.21"
     application
@@ -5,13 +7,19 @@ plugins {
 
 kotlin { jvmToolchain(17) }
 
-// One owner for the AndroidX version: the library's android/build.gradle, so the CLI and its
-// contract test always run the parser the library ships.
-val androidxRemoteVersion: String =
-    Regex("""androidxRemoteVersion: "([^"]+)"""")
-        .find(file("../../android/build.gradle").readText())
-        ?.groupValues?.get(1)
-        ?: error("androidxRemoteVersion not found in android/build.gradle")
+// One owner for the versions the library ships with: android/versions.properties, which
+// android/build.gradle reads too, so the CLI runs the same parser and player as the library's
+// defaults. (An app's `androidxRemoteVersion`/`rcPlayersVersion` override does not reach the CLI.)
+val sharedVersions =
+    Properties().apply {
+        file("../../android/versions.properties").inputStream().use { load(it) }
+    }
+
+fun sharedVersion(name: String): String =
+    sharedVersions.getProperty(name) ?: error("$name is missing from android/versions.properties")
+
+val androidxRemoteVersion = sharedVersion("androidxRemoteVersion")
+val rcPlayersVersion = sharedVersion("rcPlayersVersion")
 
 // The library's JSON conversion is plain JVM code: compile the same files here, so the CLI and the
 // on-device converter cannot drift apart.
@@ -29,9 +37,9 @@ dependencies {
     implementation("androidx.compose.remote:remote-creation-core:$androidxRemoteVersion")
     implementation("org.json:json:20260814")
     // rc-players' reader: validates what the parser wrote and prints it (--dump).
-    implementation("ee.schimke.composeai:rc-player-edit:3.8.0")
+    implementation("ee.schimke.composeai:rc-player-edit:$rcPlayersVersion")
     // rc-players' renderer support check: the same gate the Android/iOS views run before playing.
-    implementation("ee.schimke.composeai:rc-player-compose:3.8.0")
+    implementation("ee.schimke.composeai:rc-player-compose:$rcPlayersVersion")
     testImplementation(kotlin("test"))
 }
 

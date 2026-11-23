@@ -269,8 +269,10 @@ remote-compose-json --dump card.rc             # print a document's structure
 **`{ json }` relies on an AndroidX-internal parser.** Conversion — on the device and in the CLI — uses
 AndroidX's `RemoteComposeJsonParser`, which is `@RestrictTo(LIBRARY_GROUP)`: not public API, so it
 can change in any release without a note. The library is tested with
-`androidx.compose.remote:remote-creation-core` **1.0.0-alpha23** (the default of the
-`androidxRemoteVersion` Gradle property). If your app resolves another version — it uses another
+`androidx.compose.remote:remote-creation-core` **1.0.0-alpha23** (`androidxRemoteVersion` in
+[`android/versions.properties`](android/versions.properties), which the CLI uses too; an app's
+`androidxRemoteVersion` ext property overrides it for the app only). If your app resolves another
+version — it uses another
 `androidx.compose.remote` artifact at a newer alpha, or sets `androidxRemoteVersion` — Gradle picks
 the highest one, and the same JSON may convert differently or fail. Converting with the CLI at build
 time and shipping `.rc` files does not depend on the app's version.

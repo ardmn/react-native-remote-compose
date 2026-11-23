@@ -10,13 +10,24 @@ buildscript {
   }
 }
 
+// Versions the JSON CLI (tools/remote-compose-json) uses too live in versions.properties.
+def sharedVersions = new Properties()
+file("versions.properties").withInputStream { sharedVersions.load(it) }
+def sharedVersion = { name ->
+  def value = sharedVersions.getProperty(name)
+  if (value == null) {
+    throw new GradleException("${name} is missing from ${file('versions.properties')}")
+  }
+  return value
+}
+
 ext.RemoteCompose = [
   minSdkVersion: 24,
   compileSdkVersion: 37,
-  rcPlayersVersion: "3.8.0",
+  rcPlayersVersion: sharedVersion("rcPlayersVersion"),
   // The Compose Multiplatform release rc-player-compose is built against (its POM pins it).
   composeMultiplatformVersion: "1.12.2",
-  androidxRemoteVersion: "1.0.0-alpha23",
+  androidxRemoteVersion: sharedVersion("androidxRemoteVersion"),
 ]
 
 ext.getExtOrDefault = { prop ->
