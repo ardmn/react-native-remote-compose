@@ -42,16 +42,51 @@ enum HostValue: Equatable {
   /// Writes the value through rc-players' controller, which resolves the name and checks the
   /// declared type itself. Returns false when the type does not match.
   ///
-  /// rc-players 3.8.0's iOS controller sets float, string and colour variables only, so integers
-  /// and booleans can drive a float variable but not an integer one.
+  /// The same rule as Android's `toRcValue`: a number drives a float or an integer variable
+  /// (an integer one gets it truncated to 32 bits), and a boolean drives only an integer variable
+  /// holding 1 or 0, as AndroidX stores a boolean. The controller has no 64-bit integer setter, so a
+  /// long variable, which Android accepts a number for, is refused here.
   @MainActor
-  func apply(to controller: RemoteComposePlayerController) -> Bool {
+  func apply(to writer: some NamedValueWriter) -> Bool {
     switch self {
-    case let .float(name, value): controller.setFloat(Float(value), for: name)
-    case let .int(name, value): controller.setFloat(Float(value), for: name)
-    case let .boolean(name, value): controller.setFloat(value ? 1 : 0, for: name)
-    case let .text(name, value): controller.setString(value, for: name)
-    case let .color(name, argb): controller.setColor(argb, for: name)
+    case let .float(name, value):
+      writer.setFloat(Float(value), for: name)
+        || writer.setInteger(Int(Int32(saturating: value)), for: name)
+    case let .int(name, value):
+      writer.setInteger(Int(Int32(clamping: value)), for: name)
+        || writer.setFloat(Float(value), for: name)
+    case let .boolean(name, value): writer.setBoolean(value, for: name)
+    case let .text(name, value): writer.setString(value, for: name)
+    case let .color(name, argb): writer.setColor(argb, for: name)
+    }
+  }
+}
+
+/// The setters of rc-players' `RemoteComposePlayerController`. Each returns true only for a name the
+/// shown document declares with that setter's type. A protocol so the routing can be tested without
+/// a player.
+@MainActor
+protocol NamedValueWriter {
+  func setFloat(_ value: Float, for name: String) -> Bool
+  func setInteger(_ value: Int, for name: String) -> Bool
+  func setBoolean(_ value: Bool, for name: String) -> Bool
+  func setString(_ value: String, for name: String) -> Bool
+  func setColor(_ argb: UInt32, for name: String) -> Bool
+}
+
+extension RemoteComposePlayerController: NamedValueWriter {}
+
+extension Int32 {
+  /// Kotlin's `Double.toInt()`: truncates toward zero, NaN is 0 and out-of-range values clamp.
+  init(saturating value: Double) {
+    if value.isNaN {
+      self = 0
+    } else if value >= Double(Int32.max) {
+      self = .max
+    } else if value <= Double(Int32.min) {
+      self = .min
+    } else {
+      self = Int32(value)
     }
   }
 }

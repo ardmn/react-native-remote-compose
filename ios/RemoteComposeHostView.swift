@@ -194,8 +194,6 @@ public final class RemoteComposeHostView: UIView {
       emitError(
         .document,
         "Named value '\(value.name)' (\(value.type.wireValue)) does not match the document's type"
-          + (value.type == .int || value.type == .boolean
-            ? " (the iOS player sets float, string and color values only)" : "")
       )
     }
   }

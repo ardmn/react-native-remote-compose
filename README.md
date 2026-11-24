@@ -205,8 +205,7 @@ Restart Metro with `--reset-cache` after changing `assetExts`.
 | Renderer | rc-players `RcComposePlayer` in a `ComposeView` | rc-players `RcComposePlayer.xcframework` (SwiftPM) |
 | `.rc` from `uri` / `require` / `base64` | ✅ | ✅ |
 | AndroidX JSON (`{ json }`, `convertJsonToRc`) | ✅ on device (AndroidX `RemoteComposeJsonParser`) | ❌ — convert with `tools/remote-compose-json` |
-| Named values: float, string, color | ✅ | ✅ |
-| Named values: int, boolean | ✅ | ❌ (the iOS player controller sets float/string/color only) |
+| Named values: float, string, color, int, boolean | ✅ | ✅ |
 | Actions: click, long press, metadata, numeric | ✅ | ✅ |
 | Bare React Native | ✅ | ✅ |
 | Expo (development build) | ✅ | ✅ |
