@@ -20,7 +20,8 @@ it('renders nothing and reports the platform as unsupported, once', async () => 
   expect(onError).toHaveBeenCalledTimes(1);
   expect(onError).toHaveBeenCalledWith({
     code: 'unsupported',
-    message: expect.stringContaining('Android and iOS only'),
+    // unknown: jest types its asymmetric matchers as any.
+    message: expect.stringContaining('Android and iOS only') as unknown,
   });
   expect(consoleError).toHaveBeenCalledWith(
     expect.stringContaining('How to fix')

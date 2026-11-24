@@ -11,7 +11,7 @@ export function NetworkScreen() {
   const [index, setIndex] = useState(0);
   const [lenient, setLenient] = useState(true);
   const [status, setStatus] = useState('loading…');
-  const doc = networkDocuments[index]!;
+  const doc = networkDocuments[index] ?? networkDocuments[0];
 
   const onLoad = (e: RemoteComposeLoadEvent) => {
     setStatus(

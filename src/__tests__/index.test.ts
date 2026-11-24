@@ -26,7 +26,7 @@ it('rejects with how to link the module when it is not linked', async () => {
 });
 
 it('sends an object as its JSON text and resolves with the native result', async () => {
-  const convert = jest.fn(async (json: string) => `rc:${json}`);
+  const convert = jest.fn((json: string) => Promise.resolve(`rc:${json}`));
   mockNative.current = {
     isJsonConversionSupported: () => true,
     convertJsonToRc: convert,

@@ -44,8 +44,8 @@ export default defineConfig([
     },
   },
   {
-    // Type-aware rules for TypeScript. Findings that predate them are recorded in
-    // eslint-suppressions.json (ESLint bulk suppressions), so only new code has to pass.
+    // Type-aware rules for TypeScript. No bulk suppressions (eslint-suppressions.json): a finding
+    // is fixed, or disabled on its line with `-- reason`; an unused disable fails (max-warnings 0).
     files: ['**/*.{ts,tsx}'],
     extends: tseslint.configs.strictTypeChecked.map(withoutTsPlugin),
     languageOptions: {

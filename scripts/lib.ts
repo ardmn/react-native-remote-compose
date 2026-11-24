@@ -34,8 +34,11 @@ export const DEMO = {
   iosAppName: 'RemoteComposeExample.app',
 } as const;
 
-const env = (name: string): string | undefined =>
-  process.env[name] || undefined;
+function env(name: string): string | undefined {
+  // unknown: process.env's values are `any` in this repository's TypeScript program.
+  const value: unknown = process.env[name];
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
 
 /** The Android SDK: ANDROID_HOME (or the older ANDROID_SDK_ROOT), else Android Studio's default. */
 const ANDROID_SDK =
@@ -53,8 +56,9 @@ const ANDROID_SDK =
 const ADB = join(ANDROID_SDK, 'platform-tools', IS_WINDOWS ? 'adb.exe' : 'adb');
 
 /** The JDK Gradle uses: JAVA_HOME, else `java` on the PATH. */
-const JAVA = env('JAVA_HOME')
-  ? join(env('JAVA_HOME')!, 'bin', IS_WINDOWS ? 'java.exe' : 'java')
+const JAVA_HOME = env('JAVA_HOME');
+const JAVA = JAVA_HOME
+  ? join(JAVA_HOME, 'bin', IS_WINDOWS ? 'java.exe' : 'java')
   : 'java';
 
 /** The Gradle wrapper of a project directory, as this OS runs it. */
@@ -105,7 +109,9 @@ export function run(
       const detail = options.log
         ? `see ${options.log}`
         : (result.stderr || result.stdout).slice(-2000);
-      throw new Error(`${shown} exited with ${result.status} — ${detail}`);
+      throw new Error(
+        `${shown} exited with ${String(result.status)} — ${detail}`
+      );
     }
     return logFd === undefined ? result.stdout : '';
   } finally {
@@ -192,7 +198,7 @@ export function buildAndroidRelease(build: AndroidBuild): string {
       'clean',
       build.output === 'apk' ? ':app:assembleRelease' : ':app:bundleRelease',
       `-PreactNativeArchitectures=${build.abi}`,
-      `-PenableProguardInReleaseBuilds=${build.r8}`,
+      `-PenableProguardInReleaseBuilds=${String(build.r8)}`,
     ],
     { cwd: project, env: build.env, log: build.log }
   );

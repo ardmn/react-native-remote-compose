@@ -11,6 +11,13 @@ import type { RemoteComposeNamedValue, RemoteComposeSource } from '../types';
 
 type HostProps = Record<string, unknown>;
 
+// jest types its asymmetric matchers as any; as unknown they go into an expected object without an
+// unsafe assignment.
+const stringContaining = (text: string): unknown =>
+  expect.stringContaining(text);
+const stringMatching = (pattern: string | RegExp): unknown =>
+  expect.stringMatching(pattern);
+
 function nativeProps(): HostProps {
   return screen.getByTestId('player').props as HostProps;
 }
@@ -124,8 +131,10 @@ describe('namedValues', () => {
       number: number;
       valueType: string;
     }>;
-    expect(accent!.valueType).toBe('color');
-    expect(Uint32Array.of(accent!.number)[0]).toBe(0xff00897b);
+    if (accent === undefined)
+      throw new Error('no named value reached the view');
+    expect(accent.valueType).toBe('color');
+    expect(Uint32Array.of(accent.number)[0]).toBe(0xff00897b);
   });
 
   it('truncates an int to an integer', async () => {
@@ -314,9 +323,9 @@ describe('errors', () => {
       message: 'HTTP 404 for https://x/a.rc',
     });
     expect(consoleError).toHaveBeenCalledTimes(1);
-    const logged = consoleError.mock.calls[0][0] as string;
-    expect(logged).toContain('HTTP 404');
-    expect(logged).toContain('How to fix');
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringMatching(/HTTP 404[\s\S]*How to fix/)
+    );
   });
 
   it('logs errors even when the app has no onError handler', async () => {
@@ -349,7 +358,7 @@ describe('errors', () => {
     expect(onError).toHaveBeenCalledWith(
       expect.objectContaining({
         code: 'props',
-        message: expect.stringContaining('accent'),
+        message: stringContaining('accent'),
       })
     );
     expect(consoleError).toHaveBeenCalledWith(
@@ -399,7 +408,7 @@ describe('errors', () => {
       );
       expect(onError).toHaveBeenCalledWith({
         code: 'props',
-        message: expect.stringMatching(/source/),
+        message: stringMatching(/source/),
       });
       expect(
         nativeProps().documentUri ?? nativeProps().documentBase64
@@ -437,7 +446,7 @@ describe('errors', () => {
     );
     expect(onError).toHaveBeenCalledWith({
       code: 'props',
-      message: expect.stringContaining('rating'),
+      message: stringContaining('rating'),
     });
     expect(nativeProps().namedValues).toEqual([]);
   });
@@ -457,7 +466,7 @@ describe('errors', () => {
     ]);
     expect(onError).toHaveBeenCalledWith({
       code: 'props',
-      message: expect.stringContaining('namedValues.rating'),
+      message: stringContaining('namedValues.rating'),
     });
   });
 
@@ -481,7 +490,7 @@ describe('errors', () => {
     );
     expect(onError).toHaveBeenCalledWith({
       code: 'props',
-      message: expect.stringMatching(message),
+      message: stringMatching(message),
     });
     expect(nativeProps().namedValues).toEqual([]);
   });
@@ -494,7 +503,7 @@ describe('errors', () => {
     );
     expect(onError).toHaveBeenCalledWith({
       code: 'props',
-      message: expect.stringContaining('assetExts'),
+      message: stringContaining('assetExts'),
     });
   });
 });
