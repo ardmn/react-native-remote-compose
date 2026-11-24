@@ -328,9 +328,9 @@ built with and without the library's native part (same JS, so the difference is 
 
 | | App without → with the library: download | on device | **Library adds** |
 |---|---|---|---|
-| **Android** arm64, R8 on | 6.39 → 7.72 MB | 16.71 → 19.37 MB | **+1.3 MB download / +2.7 MB on device** |
-| Android arm64, R8 off | 9.57 → 16.77 MB | 26.23 → 46.42 MB | +7.2 MB / +20.2 MB |
-| **iOS** arm64 | 5.94 → 19.60 MB | 21.12 → 59.17 MB | **+13.7 MB download / +38.1 MB on device** |
+| **Android** arm64, R8 on | 6.39 → 7.72 MB | 16.71 → 19.38 MB | **+1.3 MB download / +2.7 MB on device** |
+| Android arm64, R8 off | 9.57 → 16.81 MB | 26.23 → 46.54 MB | +7.2 MB / +20.3 MB |
+| **iOS** arm64 | 5.94 → 19.65 MB | 21.12 → 59.34 MB | **+13.7 MB download / +38.2 MB on device** |
 
 How each number is obtained:
 
