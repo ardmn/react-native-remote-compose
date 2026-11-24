@@ -32,8 +32,99 @@ final class HostValueTests: XCTestCase {
 
   func testAnIntegerOutOfRangeSaturatesInsteadOfCrashing() {
     XCTAssertEqual(HostValue(wire(.int, number: .nan)), .int(name: "v", value: 0))
-    XCTAssertEqual(HostValue(wire(.int, number: .infinity)), .int(name: "v", value: .max))
-    XCTAssertEqual(HostValue(wire(.int, number: -1e300)), .int(name: "v", value: .min))
+    XCTAssertEqual(HostValue(wire(.int, number: .infinity)), .int(name: "v", value: Int(Int32.max)))
+    XCTAssertEqual(HostValue(wire(.int, number: -1e300)), .int(name: "v", value: Int(Int32.min)))
+    XCTAssertEqual(HostValue(wire(.int, number: 5e9)), .int(name: "v", value: Int(Int32.max)))
+  }
+}
+
+/// A document's typed variables, accepting a write only through the setter of the declared type,
+/// as rc-players' controller does.
+@MainActor
+private final class FakeWriter: NamedValueWriter {
+  enum Declared { case float, integer, long, string, color }
+
+  private let declared: [String: Declared]
+  private(set) var writes: [String] = []
+
+  init(_ declared: [String: Declared]) {
+    self.declared = declared
+  }
+
+  private func write(_ name: String, _ type: Declared, _ value: String) -> Bool {
+    guard declared[name] == type else { return false }
+    writes.append("\(name)=\(value)")
+    return true
+  }
+
+  func setFloat(_ value: Float, for name: String) -> Bool {
+    write(name, .float, "\(value)")
+  }
+
+  func setInteger(_ value: Int, for name: String) -> Bool {
+    write(name, .integer, "\(value)")
+  }
+
+  func setBoolean(_ value: Bool, for name: String) -> Bool {
+    write(name, .integer, "\(value)")
+  }
+
+  func setString(_ value: String, for name: String) -> Bool {
+    write(name, .string, value)
+  }
+
+  func setColor(_ argb: UInt32, for name: String) -> Bool {
+    write(name, .color, "\(argb)")
+  }
+}
+
+/// Host values reach the variable types Android's `toRcValue` lets them drive.
+@MainActor
+final class HostValueApplyTests: XCTestCase {
+  private let writer = FakeWriter(["f": .float, "i": .integer, "l": .long, "s": .string, "c": .color])
+
+  func testANumberDrivesAFloatOrAnIntegerVariable() {
+    XCTAssertTrue(HostValue.float(name: "f", value: 2.5).apply(to: writer))
+    XCTAssertTrue(HostValue.float(name: "i", value: 3.9).apply(to: writer))
+    XCTAssertTrue(HostValue.int(name: "i", value: 7).apply(to: writer))
+    XCTAssertTrue(HostValue.int(name: "f", value: 7).apply(to: writer))
+    XCTAssertEqual(writer.writes, ["f=2.5", "i=3", "i=7", "f=7.0"])
+  }
+
+  func testABooleanDrivesOnlyAnIntegerVariableAsAndroidXStoresIt() {
+    XCTAssertTrue(HostValue.boolean(name: "i", value: true).apply(to: writer))
+    XCTAssertTrue(HostValue.boolean(name: "i", value: false).apply(to: writer))
+    XCTAssertFalse(HostValue.boolean(name: "f", value: true).apply(to: writer))
+    XCTAssertEqual(writer.writes, ["i=true", "i=false"])
+  }
+
+  func testNegativeZeroAndInfinityReachAnIntegerVariableLikeKotlinsToInt() {
+    XCTAssertTrue(HostValue.float(name: "i", value: -0.0).apply(to: writer))
+    XCTAssertTrue(HostValue.float(name: "i", value: .infinity).apply(to: writer))
+    XCTAssertEqual(writer.writes, ["i=0", "i=\(Int32.max)"])
+  }
+
+  /// The controller has no 64-bit integer setter, so iOS refuses what Android accepts (README).
+  func testALongVariableIsRefused() {
+    XCTAssertFalse(HostValue.float(name: "l", value: 1).apply(to: writer))
+    XCTAssertFalse(HostValue.int(name: "l", value: 1).apply(to: writer))
+    XCTAssertFalse(HostValue.boolean(name: "l", value: true).apply(to: writer))
+    XCTAssertEqual(writer.writes, [])
+  }
+
+  func testAnIntegerOutsideThe32BitRangeClampsLikeKotlinsToInt() {
+    XCTAssertTrue(HostValue.int(name: "i", value: .max).apply(to: writer))
+    XCTAssertTrue(HostValue.float(name: "i", value: -1e300).apply(to: writer))
+    XCTAssertTrue(HostValue.float(name: "i", value: .nan).apply(to: writer))
+    XCTAssertEqual(writer.writes, ["i=\(Int32.max)", "i=\(Int32.min)", "i=0"])
+  }
+
+  func testTextAndColorDriveOnlyTheirOwnType() {
+    XCTAssertTrue(HostValue.text(name: "s", value: "Hi").apply(to: writer))
+    XCTAssertFalse(HostValue.text(name: "i", value: "Hi").apply(to: writer))
+    XCTAssertTrue(HostValue.color(name: "c", argb: 0xFF00_897B).apply(to: writer))
+    XCTAssertFalse(HostValue.color(name: "i", argb: 1).apply(to: writer))
+    XCTAssertFalse(HostValue.float(name: "s", value: 1).apply(to: writer))
   }
 }
 

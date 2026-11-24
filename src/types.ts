@@ -56,7 +56,8 @@ export type NamedValueTypesMatchSpec = Assert<
 /**
  * A value pushed into the document's host-bound named variables (`USER:` namespace by default).
  *
- * Plain values are inferred: `number` → float, `string` → string, `boolean` → boolean.
+ * Plain values are inferred: `number` → float, `string` → string, `boolean` → an integer variable
+ * holding 1 or 0 (Remote Compose has no boolean variable type).
  * Use the tagged form for colors and integers.
  */
 export type RemoteComposeNamedValue =

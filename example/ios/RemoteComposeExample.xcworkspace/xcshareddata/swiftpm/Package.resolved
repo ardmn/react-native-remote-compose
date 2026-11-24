@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/yschimke/rc-players.git",
       "state" : {
-        "revision" : "1fd500630ee40e2b9252a0f32285397d4a7355e1",
-        "version" : "3.8.0"
+        "revision" : "a92d3c88931717b6206836f853225ceeb2d1fde3",
+        "version" : "3.12.1"
       }
     }
   ],
