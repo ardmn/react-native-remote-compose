@@ -476,6 +476,8 @@ describe('errors', () => {
     [{ accent: { type: 'color', value: 'notacolor' } }, /accent.*not a color/],
     [{ title: { type: 'string', value: 5 } }, /title.*string/],
     [{ missing: undefined }, /missing.*number, string, boolean/],
+    [{ empty: null }, /empty.*got null$/],
+    [{ handler: () => 'SOURCE_TEXT' }, /handler.*got a function$/],
   ])('reports %o with a message naming the value', async (values, message) => {
     const onError = jest.fn();
     await render(
@@ -493,6 +495,26 @@ describe('errors', () => {
       message: stringMatching(message),
     });
     expect(nativeProps().namedValues).toEqual([]);
+  });
+
+  it('describes a function value without printing its source', async () => {
+    const onError = jest.fn();
+    await render(
+      <RemoteComposeView
+        testID="player"
+        source={{ base64: 'AA==' }}
+        namedValues={
+          { handler: () => 'SOURCE_TEXT' } as unknown as Record<
+            string,
+            RemoteComposeNamedValue
+          >
+        }
+        onError={onError}
+      />
+    );
+    const [[event]] = onError.mock.calls as [[{ message: string }]];
+    expect(event.message).toContain('got a function');
+    expect(event.message).not.toContain('SOURCE_TEXT');
   });
 
   it('reports a bundled asset Metro cannot resolve, with how to bundle it', async () => {
