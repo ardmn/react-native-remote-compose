@@ -92,6 +92,14 @@ jobs:
       - name: Native contract is generated from the Codegen spec
         run: yarn contract --check
 
+      - name: Expo demo dependencies match its Expo SDK (expo install --check, offline)
+        # Offline: checks against the SDK's own bundledNativeModules.json, so the result changes only
+        # with a change here. Online it would ask Expo's API for the newest patch releases, which can
+        # be younger than .yarnrc.yml's 7-day npmMinimalAgeGate and so not installable yet.
+        env:
+          EXPO_OFFLINE: '1'
+        run: yarn workspace react-native-remote-compose-example-expo expo install --check
+
       - name: Unit tests (library contract, diagnostics, Expo plugin)
         run: yarn test --ci
 
@@ -223,6 +231,8 @@ jobs:
         --config=osv-scanner.toml
         --lockfile=yarn.lock
         --lockfile=example/Gemfile.lock
+        --lockfile=example/android/app/gradle.lockfile
+        --lockfile=tools/remote-compose-json/gradle.lockfile
 
   native-tests:
     runs-on: ubuntu-latest
@@ -247,6 +257,15 @@ jobs:
 
       - name: Converter tests (JSON -> .rc, renderability gate)
         run: tools/remote-compose-json/gradlew -p tools/remote-compose-json test installDist --console=plain
+
+      - name: Gradle lockfiles match the dependencies
+        # The lockfiles are what OSV-Scanner (supply-chain) scans: a lock that no longer matches the
+        # declared dependencies would hide a downgrade or a removed library and scan versions that do
+        # not ship. Rewrite both and fail on any difference.
+        run: |
+          tools/remote-compose-json/gradlew -p tools/remote-compose-json dependencies --write-locks --console=plain > /dev/null
+          example/android/gradlew -p example/android :app:dependencies --configuration releaseRuntimeClasspath --write-locks --console=plain > /dev/null
+          git diff --exit-code -- tools/remote-compose-json/gradle.lockfile example/android/app/gradle.lockfile
 
       - name: Demo documents are up to date with their JSON
         # A changed .rc fails, and so does a new one that is not committed (a demo JSON added

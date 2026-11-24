@@ -14,8 +14,8 @@ internal object JsonDocuments {
      * authoring JSON into a document, and a restricted API can change in any release without
      * notice. Accepted knowingly. What CI checks (step "Demo documents are up to date with their
      * JSON" in .github/workflows/ci.yml): the CLI's conversion of the demo JSON files, with the
-     * version in android/versions.properties, equals the committed `.rc` files. After reviewing a
-     * change, regenerate them with `yarn documents`. It does not cover every JSON an app sends, and
+     * version in android/gradle/libs.versions.toml, equals the committed `.rc` files. After
+     * reviewing a change, regenerate them with `yarn documents`. It does not cover every JSON an app sends, and
      * on-device output can differ from the CLI's for the same JSON when:
      * - the app overrides `androidxRemoteVersion` (or resolves a newer remote-creation-core), so
      *   another parser runs;
