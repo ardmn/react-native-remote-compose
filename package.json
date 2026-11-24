@@ -107,7 +107,7 @@
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-ft-flow": "3.0.11",
     "eslint-plugin-prettier": "5.5.7",
-    "expo": "58.0.25",
+    "expo": "58.0.26",
     "jest": "30.5.2",
     "knip": "6.45.1",
     "lefthook": "2.2.2",
