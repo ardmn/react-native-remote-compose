@@ -32,8 +32,9 @@ final class HostValueTests: XCTestCase {
 
   func testAnIntegerOutOfRangeSaturatesInsteadOfCrashing() {
     XCTAssertEqual(HostValue(wire(.int, number: .nan)), .int(name: "v", value: 0))
-    XCTAssertEqual(HostValue(wire(.int, number: .infinity)), .int(name: "v", value: .max))
-    XCTAssertEqual(HostValue(wire(.int, number: -1e300)), .int(name: "v", value: .min))
+    XCTAssertEqual(HostValue(wire(.int, number: .infinity)), .int(name: "v", value: Int(Int32.max)))
+    XCTAssertEqual(HostValue(wire(.int, number: -1e300)), .int(name: "v", value: Int(Int32.min)))
+    XCTAssertEqual(HostValue(wire(.int, number: 5e9)), .int(name: "v", value: Int(Int32.max)))
   }
 }
 
@@ -41,7 +42,7 @@ final class HostValueTests: XCTestCase {
 /// as rc-players' controller does.
 @MainActor
 private final class FakeWriter: NamedValueWriter {
-  enum Declared { case float, integer, string, color }
+  enum Declared { case float, integer, long, string, color }
 
   private let declared: [String: Declared]
   private(set) var writes: [String] = []
@@ -80,7 +81,7 @@ private final class FakeWriter: NamedValueWriter {
 /// Host values reach the variable types Android's `toRcValue` lets them drive.
 @MainActor
 final class HostValueApplyTests: XCTestCase {
-  private let writer = FakeWriter(["f": .float, "i": .integer, "s": .string, "c": .color])
+  private let writer = FakeWriter(["f": .float, "i": .integer, "l": .long, "s": .string, "c": .color])
 
   func testANumberDrivesAFloatOrAnIntegerVariable() {
     XCTAssertTrue(HostValue.float(name: "f", value: 2.5).apply(to: writer))
@@ -92,8 +93,23 @@ final class HostValueApplyTests: XCTestCase {
 
   func testABooleanDrivesOnlyAnIntegerVariableAsAndroidXStoresIt() {
     XCTAssertTrue(HostValue.boolean(name: "i", value: true).apply(to: writer))
+    XCTAssertTrue(HostValue.boolean(name: "i", value: false).apply(to: writer))
     XCTAssertFalse(HostValue.boolean(name: "f", value: true).apply(to: writer))
-    XCTAssertEqual(writer.writes, ["i=true"])
+    XCTAssertEqual(writer.writes, ["i=true", "i=false"])
+  }
+
+  func testNegativeZeroAndInfinityReachAnIntegerVariableLikeKotlinsToInt() {
+    XCTAssertTrue(HostValue.float(name: "i", value: -0.0).apply(to: writer))
+    XCTAssertTrue(HostValue.float(name: "i", value: .infinity).apply(to: writer))
+    XCTAssertEqual(writer.writes, ["i=0", "i=\(Int32.max)"])
+  }
+
+  /// The controller has no 64-bit integer setter, so iOS refuses what Android accepts (README).
+  func testALongVariableIsRefused() {
+    XCTAssertFalse(HostValue.float(name: "l", value: 1).apply(to: writer))
+    XCTAssertFalse(HostValue.int(name: "l", value: 1).apply(to: writer))
+    XCTAssertFalse(HostValue.boolean(name: "l", value: true).apply(to: writer))
+    XCTAssertEqual(writer.writes, [])
   }
 
   func testAnIntegerOutsideThe32BitRangeClampsLikeKotlinsToInt() {

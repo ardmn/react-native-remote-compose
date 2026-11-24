@@ -12,7 +12,8 @@ enum HostValue: Equatable {
   init(_ wire: RemoteComposeNamedValue) {
     switch wire.valueType {
     case .float: self = .float(name: wire.name, value: wire.number)
-    case .int: self = .int(name: wire.name, value: Int(saturating: wire.number))
+    // 32 bits, as Android's `toInt()`, so an int reaches a float variable with the same value too.
+    case .int: self = .int(name: wire.name, value: Int(Int32(saturating: wire.number)))
     case .boolean: self = .boolean(name: wire.name, value: wire.number != 0)
     case .string: self = .text(name: wire.name, value: wire.text)
     // processColor packs ARGB unsigned on iOS and signed on Android; both keep 32 bits.
@@ -87,21 +88,6 @@ extension Int32 {
       self = .min
     } else {
       self = Int32(value)
-    }
-  }
-}
-
-extension Int {
-  /// Kotlin's `Double.toInt()`: NaN is 0 and out-of-range values clamp, where `Int(_:)` traps.
-  init(saturating value: Double) {
-    if value.isNaN {
-      self = 0
-    } else if value >= Double(Int.max) {
-      self = .max
-    } else if value <= Double(Int.min) {
-      self = .min
-    } else {
-      self = Int(value)
     }
   }
 }

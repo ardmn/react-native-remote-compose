@@ -205,7 +205,7 @@ Restart Metro with `--reset-cache` after changing `assetExts`.
 | Renderer | rc-players `RcComposePlayer` in a `ComposeView` | rc-players `RcComposePlayer.xcframework` (SwiftPM) |
 | `.rc` from `uri` / `require` / `base64` | ✅ | ✅ |
 | AndroidX JSON (`{ json }`, `convertJsonToRc`) | ✅ on device (AndroidX `RemoteComposeJsonParser`) | ❌ — convert with `tools/remote-compose-json` |
-| Named values: float, string, color, int, boolean | ✅ | ✅ |
+| Named values: float, string, color, int, boolean | ✅ | ✅ (not 64-bit `long` variables: rc-players' iOS controller has no setter for them) |
 | Actions: click, long press, metadata, numeric | ✅ | ✅ |
 | Bare React Native | ✅ | ✅ |
 | Expo (development build) | ✅ | ✅ |
@@ -218,7 +218,7 @@ Restart Metro with `--reset-cache` after changing `assetExts`.
 | Prop | Type | |
 |---|---|---|
 | `source` | `require(...)` · `{ uri, headers? }` · `{ base64 }` · `{ json }` | Loaded natively, off the main thread. |
-| `namedValues` | `Record<string, number \| string \| boolean \| {type, value}>` | Plain values infer float/string/boolean; use `{ type: 'color' \| 'int', value }` otherwise. Bare names address the document's `USER:` domain. |
+| `namedValues` | `Record<string, number \| string \| boolean \| {type, value}>` | Plain values infer float/string/boolean (a boolean drives an integer variable as 1/0); use `{ type: 'color' \| 'int', value }` otherwise. Bare names address the document's `USER:` domain. |
 | `theme` | `'system' \| 'light' \| 'dark'` | Picks the light/dark half of themed colors. Default `system`. |
 | `lenient` | `boolean` | Draw nothing for operations the player knows but cannot draw, instead of refusing the document. |
 | `onAction` | `(e) => void` | `{kind:'named', name, valueType, value}` (value typed by `valueType`: `none` → `null`, `float`/`int` → number, `string` → string, `floatList` → number[]) · `{kind:'host', actionId}` · `{kind:'metadata', actionId, metadata}` |

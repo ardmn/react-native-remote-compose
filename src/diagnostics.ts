@@ -96,7 +96,7 @@ const HINTS: readonly Hint[] = [
     codes: ['document'],
     when: /does not match the document's type/,
     fixes: [
-      "Pass the type the document declares: { type: 'color', value: '#…' } for colors, a number for floats and integers, true/false for booleans (integer variables), a string for text.",
+      "Pass the type the document declares: { type: 'color', value: '#…' } for colors, a number for floats and integers, true/false for booleans (integer variables), a string for text. On iOS, 64-bit (long) variables cannot be set: rc-players' iOS controller has no setter for them.",
       'The onLoad event lists the names the document declares.',
     ],
   },
