@@ -33,6 +33,17 @@ What can a document contain? Every Remote Compose building block, live with its 
 />
 ```
 
+## Try the demo
+
+The Expo demo app shows host values, JSON documents, documents from the network and performance numbers. Prebuilt files are attached to each [release](https://github.com/ardmn/react-native-remote-compose/releases/latest):
+
+- **Android (any phone or emulator):** download `remote-compose-expo-demo-<version>.apk` and install it; on a computer, `adb install remote-compose-expo-demo-<version>.apk`.
+- **iOS Simulator (Mac with Xcode):** download `remote-compose-expo-demo-<version>-ios-simulator.tar.gz`, unpack it and drag the `.app` onto a booted simulator, or run
+  `xcrun simctl install booted <the .app>` then `xcrun simctl launch booted dev.ardmn.remotecompose.expo`.
+  The simulator build does not run on a real iPhone.
+
+To build it yourself, see [Development](#development).
+
 ## Get started
 
 Five steps from an empty React Native app to a document that reacts to your state and your taps.
