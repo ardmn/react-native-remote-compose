@@ -1,10 +1,11 @@
 package com.remotecompose
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.Context
+import android.net.Uri
 import android.util.Base64
 import android.webkit.URLUtil
-import androidx.core.net.toUri
 import com.facebook.react.modules.network.OkHttpClientProvider
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -48,7 +49,10 @@ internal object DocumentLoader {
     }
 
     private suspend fun loadUri(context: Context, source: DocumentSource.Uri): ByteArray {
-        val uri = source.uri.toUri()
+        // UseKtx: toUri() is core-ktx, which this library does not declare. Declaring it would put a
+        // minimum core-ktx version on every app for a one-line wrapper around Uri.parse.
+        @SuppressLint("UseKtx")
+        val uri = Uri.parse(source.uri)
         return when {
             URLUtil.isNetworkUrl(source.uri) -> loadHttp(source)
 
