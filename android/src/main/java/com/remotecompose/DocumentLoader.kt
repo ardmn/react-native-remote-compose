@@ -2,9 +2,9 @@ package com.remotecompose
 
 import android.content.ContentResolver
 import android.content.Context
-import android.net.Uri
 import android.util.Base64
 import android.webkit.URLUtil
+import androidx.core.net.toUri
 import com.facebook.react.modules.network.OkHttpClientProvider
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -48,7 +48,7 @@ internal object DocumentLoader {
     }
 
     private suspend fun loadUri(context: Context, source: DocumentSource.Uri): ByteArray {
-        val uri = Uri.parse(source.uri)
+        val uri = source.uri.toUri()
         return when {
             URLUtil.isNetworkUrl(source.uri) -> loadHttp(source)
 
@@ -68,7 +68,8 @@ internal object DocumentLoader {
         val request =
             Request.Builder()
                 .url(source.uri)
-                .headers(Headers.headersOf(*source.headers.toTypedArray()))
+                // A few header strings copied once per request: the copy the rule warns about is negligible.
+                .headers(@Suppress("SpreadOperator") Headers.headersOf(*source.headers.toTypedArray()))
                 .build()
         val call = httpClient.newCall(request)
         return suspendCancellableCoroutine { continuation ->
@@ -87,6 +88,8 @@ internal object DocumentLoader {
         }
     }
 
+    // One throw per way a response can fail, each with its own message for onError.
+    @Suppress("ThrowsCount")
     private fun readBody(response: Response, uri: String): ByteArray {
         if (!response.isSuccessful) throw IOException("HTTP ${response.code} for $uri")
         val body = response.body ?: throw IOException("Empty response for $uri")

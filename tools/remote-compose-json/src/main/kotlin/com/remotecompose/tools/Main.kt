@@ -27,7 +27,9 @@ private object Flags {
 }
 
 private const val USAGE =
-    "usage: remote-compose-json in.json out.rc | ${Flags.DIR} in/ out/ | ${Flags.DUMP} doc.rc | ${Flags.ROUNDTRIP} doc.rc"
+    "usage: remote-compose-json in.json out.rc | ${Flags.DIR} in/ out/ | " +
+        "${Flags.DUMP} doc.rc | ${Flags.ROUNDTRIP} doc.rc"
+private const val DIR_ARGUMENTS = 3 // --dir in/ out/
 private const val EXIT_FAILURE = 1
 private const val EXIT_USAGE = 2
 private const val JSON_EXTENSION = "json"
@@ -41,7 +43,7 @@ fun main(args: Array<String>) {
             args.size == 2 && args[0] == Flags.DUMP ->
                 println(RcDocumentCodec.decode(File(args[1]).readBytes()).toStructuralText())
 
-            args.size == 3 && args[0] == Flags.DIR -> convertDir(File(args[1]), File(args[2]))
+            args.size == DIR_ARGUMENTS && args[0] == Flags.DIR -> convertDir(File(args[1]), File(args[2]))
 
             args.size == 2 -> convertFile(File(args[0]), File(args[1]))
 
@@ -50,7 +52,8 @@ fun main(args: Array<String>) {
                 exitProcess(EXIT_USAGE)
             }
         }
-    } catch (e: Exception) {
+    } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+        // The CLI's last resort: any failure becomes one line on stderr and an exit code, not a stack trace.
         System.err.println("error: ${e.message}")
         exitProcess(EXIT_FAILURE)
     }
@@ -74,7 +77,8 @@ private fun convertFile(input: File, output: File) {
     val bytes =
         try {
             convert(input.readText())
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            // Adds the file name to whatever AndroidX's parser or the renderability check throws.
             throw IllegalArgumentException("${input.path}: ${e.message}", e)
         }
     output.parentFile?.mkdirs()

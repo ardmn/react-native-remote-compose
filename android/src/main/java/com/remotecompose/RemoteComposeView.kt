@@ -1,5 +1,6 @@
 package com.remotecompose
 
+import android.annotation.SuppressLint
 import android.util.Log
 import android.widget.FrameLayout
 import androidx.annotation.MainThread
@@ -32,6 +33,11 @@ import kotlinx.coroutines.launch
  * is therefore confined to the main thread, and a newer load cancels the older one before it can
  * apply a stale result.
  */
+// ViewConstructor: React Native creates it only through RemoteComposeViewManager, with the
+// ThemedReactContext it needs; it is never inflated from XML or created by layout tools.
+// TooManyFunctions: one setter per React prop (Codegen's interface), the rest is the load lifecycle.
+@SuppressLint("ViewConstructor")
+@Suppress("TooManyFunctions")
 class RemoteComposeView(private val reactContext: ThemedReactContext) : FrameLayout(reactContext) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val typefaces = RcTypefaceLoader.Default

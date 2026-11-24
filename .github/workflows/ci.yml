@@ -126,12 +126,12 @@ jobs:
         if: ${{ !cancelled() && steps.ktlint.outcome == 'success' }}
         run: ktlint "android/src/**/*.kt" "!android/src/main/java/com/remotecompose/contract/**" "tools/remote-compose-json/**/*.kt" "tools/remote-compose-json/*.kts"
 
-      - name: Static analysis for Kotlin (detekt, new findings only)
-        # Pre-existing findings are in detekt-baseline.xml.
+      - name: Static analysis for Kotlin (detekt)
+        # No baseline: a finding is fixed or suppressed where it is, with the reason.
         if: ${{ !cancelled() && steps.detekt.outcome == 'success' }}
         env:
           DETEKT_JAR: ${{ steps.detekt.outputs.path }}
-        run: java -jar "$DETEKT_JAR" --build-upon-default-config --config detekt.yml --baseline detekt-baseline.xml --input android/src,tools/remote-compose-json/src --excludes '**/contract/**'
+        run: java -jar "$DETEKT_JAR" --build-upon-default-config --config detekt.yml --input android/src,tools/remote-compose-json/src --excludes '**/contract/**'
 
       - name: Format Swift (SwiftFormat --lint)
         # The formatter lefthook runs before each commit, so a commit made without hooks is caught too.
