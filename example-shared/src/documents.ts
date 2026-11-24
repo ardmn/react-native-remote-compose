@@ -12,9 +12,9 @@ export const pulseRc: number = require('../documents/rc/pulse.rc');
 export const productCardJson: object = require('../documents/json/product_card.json');
 export const pulseJson: object = require('../documents/json/pulse.json');
 
-/** Real AndroidX-captured documents, pinned to the rc-players 3.8.0 tag. */
+/** Real AndroidX-captured documents, pinned to the rc-players 3.12.1 tag. */
 const FIXTURES =
-  'https://raw.githubusercontent.com/yschimke/rc-players/3.8.0/Tests/RcNativePlayerCoreTests/Fixtures';
+  'https://raw.githubusercontent.com/yschimke/rc-players/3.12.1/Tests/RcNativePlayerCoreTests/Fixtures';
 
 export const networkDocuments = [
   {

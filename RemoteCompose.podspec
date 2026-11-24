@@ -5,7 +5,7 @@ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 # rc-players ships its Apple player only through Swift Package Manager (a prebuilt
 # Compose Multiplatform XCFramework behind a checksum-pinned binary target). React Native's
 # own `spm_dependency` helper wires that package into the Pods project.
-rc_players_version = "3.8.0"
+rc_players_version = "3.12.1"
 
 # React Native 0.87+ builds a static pod that has an `spm_dependency` into the shared products dir
 # (facebook/react-native#57602) and rewrites the app's `-fmodule-map-file` flags to match, but not
