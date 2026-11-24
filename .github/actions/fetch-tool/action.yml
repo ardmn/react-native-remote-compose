@@ -1,0 +1,59 @@
+name: Fetch a pinned tool
+description: >-
+  Restores the tool's release file from the cache, or downloads it; checks its SHA-256 either way
+  (a cached copy that fails is downloaded again); installs it on PATH for the job's later steps; and
+  saves a new download to the cache at once, so a later failing step does not lose it. The caller
+  names the release URL and its SHA-256, so the pinned version stays visible in the workflow. Needs
+  the checkout and Node from .nvmrc (scripts/fetch-tool.ts runs with Node's TypeScript support).
+
+inputs:
+  name:
+    description: The file name the tool is installed under (a command name, or a jar's name).
+    required: true
+  url:
+    description: The release asset to download (a zip, a tar archive in any compression tar detects, or the tool itself).
+    required: true
+  sha256:
+    description: The SHA-256 of the downloaded file, from the official release.
+    required: true
+  archive-path:
+    description: The tool's path inside the archive; empty when the download is the tool itself.
+    required: false
+    default: ''
+
+outputs:
+  path:
+    description: The installed file, for tools run by path (a jar).
+    value: ${{ steps.fetch.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    # Keyed by the checksum: a version bump is a new key, and an entry only ever holds the file
+    # that checksum names (it is saved below only after the check passed).
+    - name: Restore cached ${{ inputs.name }}
+      id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/ci-tools-cache/${{ inputs.name }}-${{ inputs.sha256 }}
+        key: ci-tools-${{ runner.os }}-${{ inputs.name }}-${{ inputs.sha256 }}
+
+    - name: Download, verify and install ${{ inputs.name }}
+      id: fetch
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        URL: ${{ inputs.url }}
+        SHA256: ${{ inputs.sha256 }}
+        ARCHIVE_PATH: ${{ inputs.archive-path }}
+        CACHE_FILE: ${{ runner.temp }}/ci-tools-cache/${{ inputs.name }}-${{ inputs.sha256 }}
+      run: node scripts/fetch-tool.ts
+
+    # A cache entry cannot be overwritten: after a corrupted hit (downloaded again above, with a
+    # warning) every run downloads until the entry is deleted (`gh cache delete <key>`) or expires.
+    - name: Save ${{ inputs.name }} to the cache
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/ci-tools-cache/${{ inputs.name }}-${{ inputs.sha256 }}
+        key: ci-tools-${{ runner.os }}-${{ inputs.name }}-${{ inputs.sha256 }}

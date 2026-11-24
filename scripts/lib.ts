@@ -5,21 +5,19 @@
  * failing command stops the script with a message that names the log and what to do.
  */
 import crossSpawn from 'cross-spawn';
-import { createHash } from 'node:crypto';
 import {
   closeSync,
   existsSync,
-  mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { deflateRawSync, constants as zlib } from 'node:zlib';
+import { ensureVerifiedFile } from './verified-download.ts';
 
 export const ROOT = resolve(import.meta.dirname, '..');
 export const IS_WINDOWS = process.platform === 'win32';
@@ -225,25 +223,14 @@ const BUNDLETOOL = {
   sha256: 'a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29',
 } as const;
 
-/** Google's bundletool jar, downloaded once into build/tools and verified against its checksum. */
+/** Google's bundletool jar in build/tools, downloaded when missing or when it fails its checksum. */
 async function bundletoolJar(): Promise<string> {
   const name = `bundletool-all-${BUNDLETOOL.version}.jar`;
   const jar = join(ROOT, 'build/tools', name);
-  if (!existsSync(jar)) {
-    const url = `https://github.com/google/bundletool/releases/download/${BUNDLETOOL.version}/${name}`;
-    const response = await fetch(url);
-    if (!response.ok)
-      throw new Error(`Downloading ${url} failed: HTTP ${response.status}`);
-    const bytes = Buffer.from(await response.arrayBuffer());
-    const digest = createHash('sha256').update(bytes).digest('hex');
-    if (digest !== BUNDLETOOL.sha256) {
-      throw new Error(
-        `${url} has checksum ${digest}, expected ${BUNDLETOOL.sha256}; refusing to run it.`
-      );
-    }
-    mkdirSync(join(ROOT, 'build/tools'), { recursive: true });
-    writeFileSync(jar, bytes);
-  }
+  await ensureVerifiedFile(jar, {
+    url: `https://github.com/google/bundletool/releases/download/${BUNDLETOOL.version}/${name}`,
+    sha256: BUNDLETOOL.sha256,
+  });
   return jar;
 }
 
