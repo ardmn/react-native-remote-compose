@@ -117,3 +117,16 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Lock what a release build of this app ships (React Native, the library and everything they pull
+// in, after Gradle's conflict resolution) in gradle.lockfile, so OSV-Scanner (CI's supply-chain job)
+// scans the library's Android dependencies as an app resolves them. The lock lives here, in the
+// demo app, not in android/build.gradle: that file runs inside every consumer's build, where a lock
+// would pin their dependency graph to ours. A changed dependency fails a release build until the lock is
+// rewritten (debug builds are not locked); CI fails when the lock does not match. After changing a dependency (the library's
+// android/gradle/libs.versions.toml included):
+//   example/android/gradlew -p example/android :app:dependencies --configuration releaseRuntimeClasspath --write-locks
+// (matching, not named: the Android plugin creates the variant configurations later.)
+configurations.matching { it.name == "releaseRuntimeClasspath" }.configureEach {
+    resolutionStrategy.activateDependencyLocking()
+}

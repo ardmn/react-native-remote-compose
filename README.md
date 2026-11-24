@@ -268,10 +268,10 @@ remote-compose-json --dump card.rc             # print a document's structure
 **`{ json }` relies on an AndroidX-internal parser.** Conversion — on the device and in the CLI — uses
 AndroidX's `RemoteComposeJsonParser`, which is `@RestrictTo(LIBRARY_GROUP)`: not public API, so it
 can change in any release without a note. The library is tested with
-`androidx.compose.remote:remote-creation-core` **1.0.0-alpha24** (`androidxRemoteVersion` in
-[`android/versions.properties`](android/versions.properties), which the CLI uses too; an app's
-`androidxRemoteVersion` ext property overrides it for the app only). If your app resolves another
-version — it uses another `androidx.compose.remote` artifact at a newer alpha, or sets
+`androidx.compose.remote:remote-creation-core` **1.0.0-alpha24** (`androidxRemote` in
+[`android/gradle/libs.versions.toml`](android/gradle/libs.versions.toml), which the CLI uses too;
+an app's `androidxRemoteVersion` ext property overrides it for the app only). If your app resolves
+another version — it uses another `androidx.compose.remote` artifact at a newer alpha, or sets
 `androidxRemoteVersion` — Gradle picks the highest one, and the same JSON may convert differently or
 fail. Converting with the CLI at build time and shipping `.rc` files does not depend on the app's
 version.
@@ -421,9 +421,11 @@ approve (Actions → the Release run → Review deployments).
 Exact versions everywhere; `yarn.lock` is installed with `--immutable` in Yarn's hardened mode;
 install scripts are disabled; npm releases younger than 7 days are never resolved
 (`npmMinimalAgeGate`); OSV-Scanner gates CI with reviewed, expiring exceptions
-(`osv-scanner.toml`); Dependabot proposes npm, Gradle, Bundler and GitHub Actions updates with the
-same 7-day cooldown (not the AndroidX Remote Compose and rc-players versions, which are bumped by hand:
-see [CONTRIBUTING](CONTRIBUTING.md#bumping-androidx-remote-compose-or-rc-players)); GitHub Actions are
+(`osv-scanner.toml`) and scans the npm, Bundler and Gradle lockfiles (the example app's release
+dependencies and the JSON CLI's); Dependabot proposes npm, Gradle (AndroidX Remote Compose and
+rc-players included, from `android/gradle/libs.versions.toml`), Bundler and GitHub Actions updates
+with the same 7-day cooldown, and `yarn lint` fails while a copy of those two versions disagrees (see
+[CONTRIBUTING](CONTRIBUTING.md#bumping-androidx-remote-compose-or-rc-players)); GitHub Actions are
 pinned by SHA and downloaded tools by checksum. A local `commit-msg` hook enforces conventional
 commits.
 

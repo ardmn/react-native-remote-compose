@@ -99,7 +99,8 @@ in a baseline; fix one and shrink its baseline in the same change. What a baseli
 | Swift | SwiftFormat 0.64.7 | `swiftformat --lint ios` | none |
 | Swift | SwiftLint 0.65.1 | `swiftlint lint --strict` | none |
 | Secrets | gitleaks 8.30.1, every commit reachable from `HEAD` | `gitleaks git --config .gitleaks.toml --log-opts="--diff-merges=separate HEAD" .` | allowlist in `.gitleaks.toml` |
-| Dependencies | OSV-Scanner | `osv-scanner scan --config=osv-scanner.toml --lockfile=yarn.lock --lockfile=example/Gemfile.lock` | `osv-scanner.toml` |
+| Dependencies | OSV-Scanner | `osv-scanner scan --config=osv-scanner.toml --lockfile=yarn.lock --lockfile=example/Gemfile.lock --lockfile=example/android/app/gradle.lockfile --lockfile=tools/remote-compose-json/gradle.lockfile` | `osv-scanner.toml` |
+| Versions | `scripts/check-versions.ts` (copies of native dependency versions agree) | `yarn lint` | none |
 
 To regenerate the detekt baseline after a fix, run detekt as in CI with `--create-baseline`.
 
@@ -111,19 +112,39 @@ report findings CI does not.
 
 ### Bumping AndroidX Remote Compose or rc-players
 
-Dependabot proposes npm, Gradle, Bundler and GitHub Actions updates, but not these two:
-`android/versions.properties` is not a file it reads, and the iOS pins are not in a Swift package
-manifest. Bump them by hand, in one change:
+`android/gradle/libs.versions.toml` owns both versions for Android (the library) and the JSON CLI,
+which imports it as its version catalog. Dependabot reads it (through both Gradle directories) and
+proposes new releases; Compose Multiplatform (`composeMultiplatform`) is excluded there because it
+follows rc-players. The copies
+below exist because their tools cannot read the catalog; `yarn lint` (`scripts/check-versions.ts`)
+fails while any of them disagrees with it, so a Dependabot bump fails CI until they are updated in the
+same pull request:
 
-- `androidx.compose.remote:remote-creation-core`: `androidxRemoteVersion` in
-  `android/versions.properties` (library and CLI), and the tested version in the README ("`{ json }`
-  relies on an AndroidX-internal parser"). Then run `yarn documents` and review any changed `.rc`.
-- rc-players: `rcPlayersVersion` in `android/versions.properties` (Android and CLI);
-  `rc_players_version` in `RemoteCompose.podspec` (iOS); the rc-players pin in
+- `androidxRemote`: the tested version in the README ("`{ json }` relies on an AndroidX-internal
+  parser"). Then run `yarn documents` and review any changed `.rc`.
+- `rcPlayers`: `rc_players_version` in `RemoteCompose.podspec` (iOS); the rc-players pin in
   `example/ios/RemoteComposeExample.xcworkspace/xcshareddata/swiftpm/Package.resolved` (version and
   revision; Xcode rewrites it when it resolves packages, e.g.
-  `xcodebuild -resolvePackageDependencies -workspace example/ios/RemoteComposeExample.xcworkspace -scheme RemoteComposeExample`); and the tag in the fixtures URL in
+  `xcodebuild -resolvePackageDependencies -workspace example/ios/RemoteComposeExample.xcworkspace -scheme RemoteComposeExample`;
+  the check does not verify the revision); and the tag in the fixtures URL and its comment in
   `example-shared/src/documents.ts`.
+- `composeMultiplatform`: the Compose Multiplatform release the new rc-player-compose depends on
+  (its POM); the check fails when `org.jetbrains.compose.ui:ui-android` in the example's lockfile is
+  a different version, which catches rc-players moving ahead but not this value raised above it.
+- Both Gradle lockfiles, which OSV-Scanner scans (CI fails when they do not match the dependencies;
+  a Dependabot pull request may already have rewritten the CLI's):
+
+  ```sh
+  tools/remote-compose-json/gradlew -p tools/remote-compose-json dependencies --write-locks
+  example/android/gradlew -p example/android :app:dependencies --configuration releaseRuntimeClasspath --write-locks
+  ```
+
+  The same applies to any other dependency change in those two builds. The library's own
+  `android/build.gradle` has no lock: it runs inside each app's build, where a lock would pin the
+  app's dependencies to ours, so the example app's lock stands for what an app ships.
+
+The Kotlin floor has its owner in `MIN_KOTLIN` (`plugin/withRemoteCompose.js`); the same check
+compares the default `kotlinVersion` in `android/build.gradle` and the README's Gradle snippet with it.
 
 ### Scripts
 

@@ -80,3 +80,6 @@ tools/remote-compose-json/build/
 tools/remote-compose-json/.gradle/
 tools/remote-compose-json/.kotlin/
 .kotlin/
+
+# Written by `--write-locks` for the version-catalog import in settings; it locks nothing.
+settings-gradle.lockfile

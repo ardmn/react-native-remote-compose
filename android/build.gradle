@@ -10,13 +10,36 @@ buildscript {
   }
 }
 
-// Versions the JSON CLI (tools/remote-compose-json) uses too live in versions.properties.
-def sharedVersions = new Properties()
-file("versions.properties").withInputStream { sharedVersions.load(it) }
-def sharedVersion = { name ->
-  def value = sharedVersions.getProperty(name)
+// The versions the library ships with (shared with the JSON CLI) live in gradle/libs.versions.toml,
+// a version catalog Dependabot reads. This build is applied inside the app's build, where only the
+// app's root build can declare a catalog, so it reads the file itself: [versions] entries
+// (`name = "1.0"`) and [libraries] entries (`alias = { module = "group:name", version.ref = "name" }`).
+def catalogFile = file("gradle/libs.versions.toml")
+def catalogVersions = [:]
+def catalogLibraries = [:]
+def catalogSection = null
+catalogFile.eachLine { line, number ->
+  def text = line.replaceFirst(/^\uFEFF/, "").trim()
+  if (text.isEmpty() || text.startsWith("#")) return
+  def header = text =~ /^\[([A-Za-z0-9_.-]+)\]$/
+  if (header.matches()) {
+    catalogSection = header.group(1)
+    return
+  }
+  def version = text =~ /^([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"$/
+  def library = text =~ /^([A-Za-z0-9_-]+)\s*=\s*\{\s*module\s*=\s*"([^":]+:[^":]+)"\s*,\s*version\.ref\s*=\s*"([A-Za-z0-9_-]+)"\s*\}$/
+  if (catalogSection == "versions" && version.matches()) {
+    catalogVersions[version.group(1)] = version.group(2)
+  } else if (catalogSection == "libraries" && library.matches()) {
+    catalogLibraries[library.group(1)] = [module: library.group(2), versionRef: library.group(3)]
+  } else {
+    throw new GradleException("${catalogFile}:${number}: android/build.gradle cannot read this line: ${line}")
+  }
+}
+def catalogVersion = { name ->
+  def value = catalogVersions[name]
   if (value == null) {
-    throw new GradleException("${name} is missing from ${file('versions.properties')}")
+    throw new GradleException("[versions] ${name} is missing from ${catalogFile}")
   }
   return value
 }
@@ -24,10 +47,6 @@ def sharedVersion = { name ->
 ext.RemoteCompose = [
   minSdkVersion: 24,
   compileSdkVersion: 37,
-  rcPlayersVersion: sharedVersion("rcPlayersVersion"),
-  // The Compose Multiplatform release rc-player-compose is built against (its POM pins it).
-  composeMultiplatformVersion: "1.12.2",
-  androidxRemoteVersion: sharedVersion("androidxRemoteVersion"),
 ]
 
 ext.getExtOrDefault = { prop ->
@@ -36,6 +55,19 @@ ext.getExtOrDefault = { prop ->
   }
 
   return RemoteCompose[prop]
+}
+
+// "group:name:version" for a catalog library. The version is the app's `<version.ref>Version` ext
+// property when it sets one (androidxRemoteVersion, rcPlayersVersion, composeMultiplatformVersion),
+// else the catalog's.
+def catalogLibrary = { alias ->
+  def library = catalogLibraries[alias]
+  if (library == null) {
+    throw new GradleException("[libraries] ${alias} is missing from ${catalogFile}")
+  }
+  def override = "${library.versionRef}Version"
+  def version = rootProject.ext.has(override) ? rootProject.ext.get(override) : catalogVersion(library.versionRef)
+  return "${library.module}:${version}"
 }
 
 apply plugin: "com.android.library"
@@ -95,11 +127,11 @@ dependencies {
   implementation "com.facebook.react:react-android"
 
   // The player: rc-players' Compose Multiplatform renderer (the same one the iOS side ships).
-  implementation "ee.schimke.composeai:rc-player-compose:${getExtOrDefault('rcPlayersVersion')}"
-  implementation "org.jetbrains.compose.foundation:foundation:${getExtOrDefault('composeMultiplatformVersion')}"
+  implementation catalogLibrary("rc-player-compose")
+  implementation catalogLibrary("compose-foundation")
   // AndroidX's authoring-JSON parser (RemoteComposeJsonParser), for `{ json }` sources. It is
   // AndroidX-internal (@RestrictTo): the README ("Authoring documents") says what that means for apps.
-  implementation "androidx.compose.remote:remote-creation-core:${getExtOrDefault('androidxRemoteVersion')}"
+  implementation catalogLibrary("remote-creation-core")
 
   testImplementation "junit:junit:4.13.2"
 }

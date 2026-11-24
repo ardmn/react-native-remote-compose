@@ -41,10 +41,19 @@ updates:
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: gradle
+    # Both directories read android/gradle/libs.versions.toml, the catalog that owns the AndroidX
+    # Remote Compose and rc-players versions (/android directly, the CLI through its import), so one
+    # grouped pull request bumps it. A bump also needs the copies `yarn lint` checks and the
+    # example app's Gradle lockfile (Dependabot may rewrite the CLI's lockfile itself); CI fails
+    # until they are updated (CONTRIBUTING.md, "Bumping AndroidX Remote Compose or rc-players").
     directories: ["/android", "/tools/remote-compose-json"]
     patterns: ["*"]
     multi-ecosystem-group: all-dependencies
     cooldown: { default-days: 7 }
+    ignore:
+      # Compose Multiplatform follows the release rc-player-compose is built against; it moves with
+      # rc-players, never on its own (`yarn lint` checks it against the example's lockfile).
+      - dependency-name: "org.jetbrains.compose*"
 
   - package-ecosystem: bundler
     directory: /example

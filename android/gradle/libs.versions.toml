@@ -1,0 +1,32 @@
+# The versions the library ships with, and the one place to bump them for Android and the JSON CLI.
+# A Gradle version catalog, so Dependabot reads it (.github/dependabot.yml: gradle in /android, and in
+# /tools/remote-compose-json through the CLI's import) and proposes new releases, security fixes
+# included.
+#
+# - android/build.gradle reads this file itself: it is applied inside the app's build (React Native
+#   autolinking includes it as a subproject), and only the app's root build can declare a catalog.
+#   It reads [versions] and [libraries] written as below (`key = "value"`, and inline tables with
+#   `module` and `version.ref`); anything else stops the build with the line it could not read.
+# - tools/remote-compose-json imports it as its `libs` catalog (settings.gradle.kts).
+# - Other copies of these versions (podspec, Package.resolved, fixtures URL, README) are checked
+#   against this file by `yarn lint` (scripts/check-versions.ts); CONTRIBUTING.md lists them.
+#
+# These are the library's defaults. An app can override them with `rootProject.ext` properties
+# (androidxRemoteVersion, rcPlayersVersion, composeMultiplatformVersion); that changes only what the
+# app builds against, not the CLI.
+
+[versions]
+# AndroidX Remote Compose: remote-creation-core supplies RemoteComposeJsonParser (`{ json }`).
+androidxRemote = "1.0.0-alpha24"
+# rc-players: the player (rc-player-compose) and its document reader (rc-player-edit).
+rcPlayers = "3.12.1"
+# The Compose Multiplatform release rc-player-compose is built against (its POM pins it). Moves
+# with rc-players only: Dependabot ignores it, and `yarn lint` fails when rc-players resolves a
+# newer one in example/android/app/gradle.lockfile (a value raised above rc-players' is not caught).
+composeMultiplatform = "1.12.2"
+
+[libraries]
+remote-creation-core = { module = "androidx.compose.remote:remote-creation-core", version.ref = "androidxRemote" }
+rc-player-compose = { module = "ee.schimke.composeai:rc-player-compose", version.ref = "rcPlayers" }
+rc-player-edit = { module = "ee.schimke.composeai:rc-player-edit", version.ref = "rcPlayers" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
