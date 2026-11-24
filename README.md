@@ -33,6 +33,27 @@ What can a document contain? Every Remote Compose building block, live with its 
 />
 ```
 
+## Try the demo
+
+The Expo demo app shows host values, JSON documents, documents from the network and performance
+numbers. Prebuilt builds are attached to the GitHub releases since
+[v0.2.0](https://github.com/ardmn/react-native-remote-compose/releases/tag/v0.2.0):
+
+- **Android 7.0+ (phone or emulator):** download `remote-compose-expo-demo-<version>.apk` and open it
+  (allow installing unknown apps), or run `adb install remote-compose-expo-demo-<version>.apk`.
+- **iOS Simulator (a Mac with Xcode):** download `remote-compose-expo-demo-<version>-ios-simulator.tar.gz`,
+  then with a simulator booted:
+
+  ```sh
+  tar -xzf remote-compose-expo-demo-*-ios-simulator.tar.gz
+  xcrun simctl install booted RemoteComposeExpo.app
+  xcrun simctl launch booted dev.ardmn.remotecompose.expo
+  ```
+
+  This build runs only in the simulator, not on a real iPhone.
+
+To build it yourself, see [Development](#development).
+
 ## Get started
 
 Five steps from an empty React Native app to a document that reacts to your state and your taps.
@@ -415,6 +436,11 @@ install and publishes with [npm Trusted Publishing](https://docs.npmjs.com/trust
 no npm token exists, and npm attaches a provenance attestation to the release. The job runs in the
 `npm` GitHub environment, which only `v*` tags may deploy to and which waits for a maintainer to
 approve (Actions → the Release run → Review deployments).
+
+After npm has the version, attach the demo builds to the GitHub release (see [Try the demo](#try-the-demo)):
+`cd example-expo && npx eas-cli build --platform all --profile preview`, then upload the APK as
+`remote-compose-expo-demo-<version>.apk` and the simulator archive as
+`remote-compose-expo-demo-<version>-ios-simulator.tar.gz` with `gh release upload v<version>`.
 
 ### Supply chain
 
