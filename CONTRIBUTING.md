@@ -113,8 +113,9 @@ report findings CI does not.
 ### Bumping AndroidX Remote Compose or rc-players
 
 `android/gradle/libs.versions.toml` owns both versions for Android (the library) and the JSON CLI,
-which imports it as its version catalog. Dependabot reads it and proposes new releases; Compose
-Multiplatform (`composeMultiplatform`) is excluded there because it follows rc-players. The copies
+which imports it as its version catalog. Dependabot reads it (through both Gradle directories) and
+proposes new releases; Compose Multiplatform (`composeMultiplatform`) is excluded there because it
+follows rc-players. The copies
 below exist because their tools cannot read the catalog; `yarn lint` (`scripts/check-versions.ts`)
 fails while any of them disagrees with it, so a Dependabot bump fails CI until they are updated in the
 same pull request:
@@ -128,9 +129,10 @@ same pull request:
   the check does not verify the revision); and the tag in the fixtures URL and its comment in
   `example-shared/src/documents.ts`.
 - `composeMultiplatform`: the Compose Multiplatform release the new rc-player-compose depends on
-  (its POM); the check compares it with `org.jetbrains.compose.ui:ui-android` in the example's
-  lockfile.
-- Both Gradle lockfiles, which OSV-Scanner scans (CI fails when they do not match the dependencies):
+  (its POM); the check fails when `org.jetbrains.compose.ui:ui-android` in the example's lockfile is
+  a different version, which catches rc-players moving ahead but not this value raised above it.
+- Both Gradle lockfiles, which OSV-Scanner scans (CI fails when they do not match the dependencies;
+  a Dependabot pull request may already have rewritten the CLI's):
 
   ```sh
   tools/remote-compose-json/gradlew -p tools/remote-compose-json dependencies --write-locks

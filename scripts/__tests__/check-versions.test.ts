@@ -32,8 +32,8 @@ await test('a podspec left behind after a catalog bump is reported, naming both 
     ),
     problems.join('\n')
   );
-  // Every rc-players copy disagrees now, the lockfiles included.
-  assert.ok(problems.length >= 6, problems.join('\n'));
+  // Every rc-players copy disagrees now, the lockfiles included, and nothing else.
+  assert.equal(problems.length, 6, problems.join('\n'));
 });
 
 await test('a copy that can no longer be found fails instead of passing silently', () => {
@@ -60,11 +60,34 @@ await test('a Kotlin floor raised in the Expo plugin only is reported for build.
   assert.ok(problems.every((p) => p.endsWith('MIN_KOTLIN is 9.9.9')));
 });
 
-await test('the catalog reader takes [versions] entries only', () => {
+await test('the catalog reader returns [versions] and accepts [libraries] inline tables', () => {
   const versions = catalogVersions(
-    ['# comment', '[versions]', 'a = "1.0"', '[libraries]', 'b = "2.0"'].join(
-      '\n'
-    )
+    [
+      '\uFEFF# comment',
+      '[versions]',
+      'a = "1.0"',
+      '[libraries]',
+      'b = { module = "g:n", version.ref = "a" }',
+    ].join('\r\n')
   );
   assert.deepEqual([...versions], [['a', '1.0']]);
+  assert.throws(
+    () => catalogVersions('[libraries]\nb = "2.0"'),
+    /line 2 is not one/
+  );
+});
+
+await test('a catalog line android/build.gradle cannot read fails the check, as it fails that build', () => {
+  const problems = findMismatches(
+    withEdit(CATALOG, (text) =>
+      text.replace(/^rcPlayers = "([^"]+)"$/m, 'rcPlayers = "$1"  # note')
+    )
+  );
+  assert.ok(problems.length > 0);
+  assert.ok(
+    problems.every((p) =>
+      p.includes('is not one android/build.gradle can read')
+    ),
+    problems.join('\n')
+  );
 });

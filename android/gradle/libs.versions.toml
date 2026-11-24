@@ -1,6 +1,7 @@
 # The versions the library ships with, and the one place to bump them for Android and the JSON CLI.
-# A Gradle version catalog, so Dependabot reads it (.github/dependabot.yml, gradle in /android) and
-# proposes new releases, security fixes included.
+# A Gradle version catalog, so Dependabot reads it (.github/dependabot.yml: gradle in /android, and in
+# /tools/remote-compose-json through the CLI's import) and proposes new releases, security fixes
+# included.
 #
 # - android/build.gradle reads this file itself: it is applied inside the app's build (React Native
 #   autolinking includes it as a subproject), and only the app's root build can declare a catalog.
@@ -20,8 +21,8 @@ androidxRemote = "1.0.0-alpha24"
 # rc-players: the player (rc-player-compose) and its document reader (rc-player-edit).
 rcPlayers = "3.12.1"
 # The Compose Multiplatform release rc-player-compose is built against (its POM pins it). Moves
-# with rc-players only: Dependabot ignores it, and `yarn lint` checks it against the version the
-# example app resolves (example/android/app/gradle.lockfile).
+# with rc-players only: Dependabot ignores it, and `yarn lint` fails when rc-players resolves a
+# newer one in example/android/app/gradle.lockfile (a value raised above rc-players' is not caught).
 composeMultiplatform = "1.12.2"
 
 [libraries]

@@ -19,7 +19,7 @@ def catalogVersions = [:]
 def catalogLibraries = [:]
 def catalogSection = null
 catalogFile.eachLine { line, number ->
-  def text = line.trim()
+  def text = line.replaceFirst(/^\uFEFF/, "").trim()
   if (text.isEmpty() || text.startsWith("#")) return
   def header = text =~ /^\[([A-Za-z0-9_.-]+)\]$/
   if (header.matches()) {

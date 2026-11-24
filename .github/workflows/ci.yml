@@ -103,7 +103,7 @@ jobs:
       - name: Unit tests (library contract, diagnostics, Expo plugin)
         run: yarn test --ci
 
-      - name: Script tests (native contract, measurement parsing)
+      - name: Script tests (native contract, measurement parsing, version copies)
         run: yarn test:scripts
 
       - name: Lint Kotlin (ktlint, checksum-pinned)

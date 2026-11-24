@@ -33,21 +33,36 @@ type Copy = {
   ownerValue: (read: Read) => string;
 };
 
-/** The `[versions]` table of a version catalog, in the subset android/build.gradle reads. */
+/**
+ * The `[versions]` table of a version catalog. Accepts exactly the subset android/build.gradle reads
+ * and throws on any other line, as that build does: a catalog the library cannot read inside an
+ * app's build must fail here too.
+ */
 export function catalogVersions(text: string): Map<string, string> {
   const versions = new Map<string, string>();
   let section = '';
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
+  text.split(/\r?\n/).forEach((raw, index) => {
+    const line = raw.replace(/^\uFEFF/, '').trim();
+    if (line === '' || line.startsWith('#')) return;
     const header = /^\[([A-Za-z0-9_.-]+)\]$/.exec(line)?.[1];
     if (header !== undefined) {
       section = header;
-      continue;
+      return;
     }
     const [, name, value] =
       /^([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"$/.exec(line) ?? [];
-    if (section === 'versions' && name && value) versions.set(name, value);
-  }
+    const isLibrary =
+      /^[A-Za-z0-9_-]+\s*=\s*\{\s*module\s*=\s*"[^":]+:[^":]+"\s*,\s*version\.ref\s*=\s*"[A-Za-z0-9_-]+"\s*\}$/.test(
+        line
+      );
+    if (section === 'versions' && name && value) {
+      versions.set(name, value);
+    } else if (!(section === 'libraries' && isLibrary)) {
+      throw new Error(
+        `line ${String(index + 1)} is not one android/build.gradle can read: ${raw}`
+      );
+    }
+  });
   return versions;
 }
 
@@ -64,7 +79,13 @@ function catalog(name: string): Pick<Copy, 'owner' | 'ownerValue'> {
   return {
     owner: `${CATALOG} [versions] ${name}`,
     ownerValue: (read) => {
-      const value = catalogVersions(read(CATALOG)).get(name);
+      let versions: Map<string, string>;
+      try {
+        versions = catalogVersions(read(CATALOG));
+      } catch (error) {
+        throw new Error(`${CATALOG}: ${(error as Error).message}`);
+      }
+      const value = versions.get(name);
       if (value === undefined) {
         throw new Error(`${CATALOG}: [versions] ${name} is missing`);
       }
@@ -138,8 +159,10 @@ export const COPIES: readonly Copy[] = [
     ...catalog('androidxRemote'),
   },
   {
-    // The library declares foundation itself; ui comes only through rc-player-compose, so a newer
-    // version here means rc-players moved to a newer Compose Multiplatform.
+    // The library declares foundation itself; ui comes only through rc-player-compose and
+    // foundation, so a newer version here means rc-players moved to a newer Compose Multiplatform.
+    // One direction only: a catalog value raised above rc-players' shows up here too (foundation
+    // pulls ui up), which is why Dependabot ignores org.jetbrains.compose*.
     file: EXAMPLE_LOCK,
     what: 'org.jetbrains.compose.ui:ui-android (the Compose Multiplatform rc-players resolves)',
     find: locked('org.jetbrains.compose.ui:ui-android'),

@@ -41,10 +41,11 @@ updates:
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: gradle
-    # /android reads android/gradle/libs.versions.toml, the catalog that owns the AndroidX Remote
-    # Compose and rc-players versions (the CLI imports it). A bump there also needs the copies
-    # `yarn lint` checks and both Gradle lockfiles (CONTRIBUTING.md, "Bumping AndroidX Remote Compose
-    # or rc-players"); CI fails until they are updated.
+    # Both directories read android/gradle/libs.versions.toml, the catalog that owns the AndroidX
+    # Remote Compose and rc-players versions (/android directly, the CLI through its import), so one
+    # grouped pull request bumps it. A bump also needs the copies `yarn lint` checks and the
+    # example app's Gradle lockfile (Dependabot may rewrite the CLI's lockfile itself); CI fails
+    # until they are updated (CONTRIBUTING.md, "Bumping AndroidX Remote Compose or rc-players").
     directories: ["/android", "/tools/remote-compose-json"]
     patterns: ["*"]
     multi-ecosystem-group: all-dependencies
