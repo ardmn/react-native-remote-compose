@@ -22,7 +22,10 @@ const sha256 = (bytes: Uint8Array) =>
   createHash('sha256').update(bytes).digest('hex');
 
 /** Paths the test server answers; every request is counted per path. */
-const routes = new Map<string, { status: number; body: Uint8Array }>();
+type Route = { status: number; body: Uint8Array };
+const routes = new Map<string, Route>();
+/** Responses served once each, in order, before the path falls back to `routes`. */
+const queued = new Map<string, Route[]>();
 const requests = new Map<string, number>();
 let server: Server;
 let base: string;
@@ -31,7 +34,8 @@ before(async () => {
   server = createServer((req, res) => {
     const path = req.url ?? '';
     requests.set(path, (requests.get(path) ?? 0) + 1);
-    const route = routes.get(path) ?? { status: 404, body: new Uint8Array() };
+    const route = queued.get(path)?.shift() ??
+      routes.get(path) ?? { status: 404, body: new Uint8Array() };
     res.writeHead(route.status).end(route.body);
   });
   await new Promise<void>((listening) =>
@@ -127,6 +131,34 @@ test('a server error is retried up to the attempt limit, a 404 is not', async ()
   assert.equal(requests.get('/missing'), 1);
 });
 
+test('a server error followed by a good response succeeds on the retry', async () => {
+  queued.set('/recovers', [
+    { status: 503, body: new Uint8Array() },
+    { status: 429, body: new Uint8Array() },
+  ]);
+  routes.set('/recovers', { status: 200, body: TOOL });
+  const file = join(tempDir(), 'tool');
+  const downloaded = await ensureVerifiedFile(
+    file,
+    { url: `${base}/recovers`, sha256: sha256(TOOL) },
+    quiet
+  );
+  assert.equal(downloaded, true);
+  assert.deepEqual(readFileSync(file), TOOL);
+  assert.equal(requests.get('/recovers'), 3);
+});
+
+test('a malformed pinned URL is refused before any request', async () => {
+  await assert.rejects(
+    ensureVerifiedFile(
+      join(tempDir(), 'tool'),
+      { url: 'releases/tool', sha256: sha256(TOOL) },
+      quiet
+    ),
+    /is not a URL: 'releases\/tool'/
+  );
+});
+
 test('a malformed pinned checksum is refused before any request', async () => {
   await assert.rejects(
     ensureVerifiedFile(
@@ -143,13 +175,17 @@ test('a malformed pinned checksum is refused before any request', async () => {
 // test server runs on this process's event loop.
 const FETCH_TOOL = resolve(import.meta.dirname, '../fetch-tool.ts');
 
-async function fetchTool(env: Record<string, string>) {
+async function fetchTool(env: Record<string, string>, cachedCopy?: Uint8Array) {
   const runnerTemp = tempDir();
   const githubPath = join(runnerTemp, 'github_path');
   const githubOutput = join(runnerTemp, 'github_output');
   writeFileSync(githubPath, '');
   writeFileSync(githubOutput, '');
-  await promisify(execFile)(process.execPath, [FETCH_TOOL], {
+  if (cachedCopy !== undefined) {
+    mkdirSync(join(runnerTemp, 'cache'));
+    writeFileSync(join(runnerTemp, 'cache/download'), cachedCopy);
+  }
+  const { stdout } = await promisify(execFile)(process.execPath, [FETCH_TOOL], {
     env: {
       ...process.env,
       RUNNER_TEMP: runnerTemp,
@@ -161,6 +197,7 @@ async function fetchTool(env: Record<string, string>) {
     },
   });
   return {
+    stdout,
     path: readFileSync(githubPath, 'utf8'),
     output: readFileSync(githubOutput, 'utf8'),
     cacheFile: join(runnerTemp, 'cache/download'),
@@ -181,6 +218,36 @@ test('fetch-tool installs a plain download as an executable on PATH', async () =
   assert.deepEqual(readFileSync(installed), TOOL);
   assert.match(statSync(installed).mode.toString(8), /755$/);
   assert.deepEqual(readFileSync(result.cacheFile), TOOL);
+});
+
+test('fetch-tool keeps a cached copy that passes its check, without a request', async () => {
+  const result = await fetchTool(
+    { NAME: 'tool', URL: `${base}/never-fetched`, SHA256: sha256(TOOL) },
+    TOOL
+  );
+  assert.match(result.output, /downloaded=false/);
+  assert.equal(requests.get('/never-fetched'), undefined);
+  assert.deepEqual(readFileSync(join(result.bin, 'tool/bin/tool')), TOOL);
+});
+
+test('fetch-tool replaces a corrupted cached copy and warns how to delete its cache entry', async () => {
+  routes.set('/recached', { status: 200, body: TOOL });
+  const result = await fetchTool(
+    {
+      NAME: 'tool',
+      URL: `${base}/recached`,
+      SHA256: sha256(TOOL),
+      CACHE_KEY: 'ci-tools-Linux-tool-0123',
+    },
+    Buffer.from('truncated')
+  );
+  assert.match(
+    result.stdout,
+    /^::warning::.*has checksum .*, expected .*gh cache delete ci-tools-Linux-tool-0123/m
+  );
+  assert.match(result.output, /downloaded=true/);
+  assert.deepEqual(readFileSync(result.cacheFile), TOOL);
+  assert.deepEqual(readFileSync(join(result.bin, 'tool/bin/tool')), TOOL);
 });
 
 test('fetch-tool extracts the named file from a tar archive', async () => {

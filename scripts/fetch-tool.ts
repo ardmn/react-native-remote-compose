@@ -5,7 +5,8 @@
  *
  * Inputs, as environment variables: NAME (the installed file name), URL, SHA256, ARCHIVE_PATH (the
  * file inside a zip or tar archive; empty when the download is the tool itself) and CACHE_FILE
- * (where the download is kept, the path actions/cache saves). Outputs, to $GITHUB_OUTPUT: `path`
+ * (where the download is kept, the path actions/cache saves), and CACHE_KEY (its cache entry, named
+ * in the warning for a corrupted copy; optional). Outputs, to $GITHUB_OUTPUT: `path`
  * (the installed file) and `downloaded` (`true` when the cached file was missing or replaced).
  */
 import { execFileSync } from 'node:child_process';
@@ -46,6 +47,7 @@ function isZip(file: string): boolean {
 const name = input('NAME');
 const archivePath = input('ARCHIVE_PATH', false);
 const cacheFile = input('CACHE_FILE');
+const cacheKey = input('CACHE_KEY', false);
 if (!/^[A-Za-z0-9._-]+$/.test(name) || name.startsWith('.')) {
   throw new Error(`NAME must be a plain file name, got '${name}'.`);
 }
@@ -55,8 +57,10 @@ const downloaded = await ensureVerifiedFile(
   { url: input('URL'), sha256: input('SHA256') },
   {
     warn: (message) => {
+      const entry =
+        cacheKey === '' ? 'the cache entry' : `gh cache delete ${cacheKey}`;
       console.log(
-        `::warning::${message} The cache entry cannot be overwritten; delete it (gh cache delete) to stop downloading on every run.`
+        `::warning::${message} A cache entry cannot be overwritten and does not expire while runs restore it: run ${entry} to stop downloading on every run.`
       );
     },
   }

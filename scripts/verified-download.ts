@@ -44,6 +44,13 @@ export async function ensureVerifiedFile(
   pinned: Pinned,
   options: DownloadOptions = {}
 ): Promise<boolean> {
+  // Checked before any request, as the checksum below: a typo fails at once, not after retries.
+  let url: URL;
+  try {
+    url = new URL(pinned.url);
+  } catch {
+    throw new Error(`The pinned URL is not a URL: '${pinned.url}'.`);
+  }
   if (!/^[0-9a-f]{64}$/.test(pinned.sha256)) {
     throw new Error(
       `The pinned sha256 for ${pinned.url} must be 64 lowercase hex digits, got '${pinned.sha256}'.`
@@ -57,7 +64,7 @@ export async function ensureVerifiedFile(
     );
     rmSync(file, { force: true });
   }
-  const bytes = await download(pinned.url, options);
+  const bytes = await download(url.href, options);
   const digest = sha256Of(bytes);
   if (digest !== pinned.sha256) {
     throw new Error(
