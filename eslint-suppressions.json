@@ -15,16 +15,10 @@
   "example-shared/src/screens/JsonScreen.tsx": {
     "@typescript-eslint/no-misused-promises": {
       "count": 1
-    },
-    "@typescript-eslint/restrict-template-expressions": {
-      "count": 2
     }
   },
   "example-shared/src/screens/NetworkScreen.tsx": {
     "@typescript-eslint/no-non-null-assertion": {
-      "count": 1
-    },
-    "@typescript-eslint/restrict-template-expressions": {
       "count": 1
     }
   },
@@ -34,39 +28,6 @@
     },
     "@typescript-eslint/no-misused-promises": {
       "count": 1
-    },
-    "@typescript-eslint/restrict-template-expressions": {
-      "count": 3
-    }
-  },
-  "scripts/__tests__/generate-native-contract.test.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 6
-    }
-  },
-  "scripts/__tests__/host-cpu.test.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 3
-    }
-  },
-  "scripts/__tests__/lib.test.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 5
-    }
-  },
-  "scripts/__tests__/package-exports.test.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 2
-    }
-  },
-  "scripts/__tests__/perf-parse.test.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 6
-    }
-  },
-  "scripts/__tests__/stats.test.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 3
     }
   },
   "scripts/generate-native-contract.ts": {
@@ -74,7 +35,7 @@
       "count": 2
     },
     "@typescript-eslint/restrict-template-expressions": {
-      "count": 4
+      "count": 3
     }
   },
   "scripts/lib.ts": {
@@ -85,7 +46,7 @@
       "count": 1
     },
     "@typescript-eslint/restrict-template-expressions": {
-      "count": 3
+      "count": 2
     }
   },
   "scripts/measure-perf.ts": {
@@ -94,9 +55,6 @@
     },
     "@typescript-eslint/restrict-plus-operands": {
       "count": 1
-    },
-    "@typescript-eslint/restrict-template-expressions": {
-      "count": 16
     }
   },
   "scripts/stats.ts": {
@@ -135,9 +93,6 @@
       "count": 1
     },
     "@typescript-eslint/no-unnecessary-condition": {
-      "count": 2
-    },
-    "@typescript-eslint/restrict-template-expressions": {
       "count": 2
     }
   }
