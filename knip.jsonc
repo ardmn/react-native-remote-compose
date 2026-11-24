@@ -29,10 +29,8 @@
     },
     "example-expo": {
       "ignoreDependencies": [
-        // knip's Expo plugin expects expo-system-ui because app.json sets userInterfaceStyle, and
-        // expo-updates because app.json does not set `updates.enabled: false`. The app uses
-        // neither.
-        "expo-system-ui",
+        // knip's Expo plugin expects expo-updates because app.json does not set
+        // `updates.enabled: false`. The app does not use it.
         "expo-updates"
       ]
     }
