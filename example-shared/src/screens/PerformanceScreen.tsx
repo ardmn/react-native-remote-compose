@@ -176,9 +176,18 @@ export function PerformanceScreen({
     setRunning(false);
   }, [phase, post]);
 
+  // A run that throws would leave the screen "running…" and the benchmark script waiting for
+  // RC_PERF until its timeout; say why instead.
+  const start = useCallback(() => {
+    run().catch((error: unknown) => {
+      console.warn(`RC_PERF_FAILED ${String(error)}`);
+      setRunning(false);
+    });
+  }, [run]);
+
   useEffect(() => {
-    if (autorun) run();
-  }, [autorun, run]);
+    if (autorun) start();
+  }, [autorun, start]);
 
   return (
     <>
@@ -187,7 +196,7 @@ export function PerformanceScreen({
           <Button
             testID="run-benchmark"
             label={running ? 'running…' : 'Run'}
-            onPress={run}
+            onPress={start}
           />
           <Button
             label="unmount"

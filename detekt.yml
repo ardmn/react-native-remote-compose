@@ -1,5 +1,6 @@
 # detekt: applied on top of its default configuration (--build-upon-default-config).
-# Findings that predate detekt are in detekt-baseline.xml; CI fails on any new one.
+# No baseline: CI fails on any finding. One that is right as it is gets @Suppress("Rule") on the
+# narrowest element (a catch parameter, an expression, a function), with a comment saying why.
 naming:
   FunctionNaming:
     # Compose's convention, as in .editorconfig for ktlint: composables are PascalCase nouns.

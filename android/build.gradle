@@ -117,9 +117,7 @@ android {
       "PlaySdkIndexGenericIssues",
       "PlaySdkIndexDeprecated",
     ]
-    // Findings that predate running lint in CI; only new ones fail. Regenerate with
-    // `:react-native-remote-compose:updateLintBaseline` after fixing one.
-    baseline = file("lint-baseline.xml")
+    // No baseline: a finding is fixed, or suppressed where it is (@SuppressLint) with the reason.
   }
 }
 

@@ -67,6 +67,7 @@ private suspend fun <T> stage(code: ErrorCode, block: suspend () -> T): T = try 
     block()
 } catch (e: CancellationException) {
     throw e
-} catch (e: Exception) {
+} catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+    // Every failure of a stage, whatever AndroidX or rc-players throws, reaches JS as that stage's code.
     throw RemoteComposeException(code, e.message ?: e.toString(), e)
 }

@@ -18,16 +18,18 @@ export function JsonScreen() {
   const [label, setLabel] = useState('Tap the circle');
   const [status, setStatus] = useState<string>('');
 
-  const convert = async () => {
+  const convert = () => {
     const start = Date.now();
-    try {
-      const base64 = await convertJsonToRc(pulseJson);
-      setStatus(
-        `converted: ${Math.floor((base64.length * 3) / 4)} bytes in ${Date.now() - start} ms`
-      );
-    } catch (e) {
-      setStatus(`rejected: ${(e as Error).message}`);
-    }
+    convertJsonToRc(pulseJson).then(
+      (base64) => {
+        setStatus(
+          `converted: ${Math.floor((base64.length * 3) / 4)} bytes in ${Date.now() - start} ms`
+        );
+      },
+      (e: unknown) => {
+        setStatus(`rejected: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    );
   };
 
   return (

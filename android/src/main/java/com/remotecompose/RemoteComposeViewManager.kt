@@ -13,6 +13,7 @@ import com.remotecompose.contract.Theme
 
 /** Maps Codegen's props interface to [RemoteComposeView]; wire values become typed here. */
 @ReactModule(name = RemoteComposeViewManager.NAME)
+@Suppress("TooManyFunctions") // one override per React prop and view-manager callback
 class RemoteComposeViewManager :
     SimpleViewManager<RemoteComposeView>(),
     RemoteComposeViewManagerInterface<RemoteComposeView> {

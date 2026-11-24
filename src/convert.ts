@@ -40,10 +40,20 @@ const INT32_MAX = 2 ** 31 - 1;
 
 /** A short, safe description of an unexpected value for an error message. */
 function describe(value: unknown): string {
-  if (value === null) return 'null';
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (typeof value === 'object') return 'an object';
-  return String(value);
+  switch (typeof value) {
+    case 'string':
+      return JSON.stringify(value);
+    case 'object':
+      return value === null ? 'null' : 'an object';
+    case 'function':
+      return 'a function';
+    case 'number':
+    case 'bigint':
+    case 'boolean':
+    case 'symbol':
+    case 'undefined':
+      return String(value);
+  }
 }
 
 function nonEmptyString(prop: string, value: unknown): string {
@@ -83,6 +93,7 @@ export function toNativeSource(source: RemoteComposeSource): NativeSourceProps {
     }
     return { documentUri: resolved.uri };
   }
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- JavaScript callers are not type-checked and can pass null.
   if (typeof source !== 'object' || source === null) {
     throw new Error(`${SOURCE_SHAPES}, got ${describe(source)}`);
   }
@@ -158,6 +169,7 @@ function toNativeNamedValue(
     case 'boolean':
       return number('boolean', value ? 1 : 0);
   }
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- JavaScript callers are not type-checked and can pass null.
   if (typeof value !== 'object' || value === null) {
     throw new Error(
       `${prop} must be a number, string, boolean or { type, value }, got ${describe(value)}`

@@ -20,8 +20,9 @@ class RemoteComposeModule(reactContext: ReactApplicationContext) : NativeRemoteC
         executor.execute {
             try {
                 promise.resolve(Base64.encodeToString(JsonDocuments.toRc(json), Base64.NO_WRAP))
-            } catch (e: Exception) {
-                // A conversion failure is a `load` failure, as the view reports it for `{ json }`.
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                // Anything AndroidX's parser throws rejects the promise (uncaught on this executor it
+                // would crash the app), as a `load` failure, as the view reports it for `{ json }`.
                 promise.reject(ErrorCode.LOAD.wireValue, e.message ?: e.toString(), e)
             }
         }

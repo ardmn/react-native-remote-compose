@@ -44,8 +44,8 @@ export default defineConfig([
     },
   },
   {
-    // Type-aware rules for TypeScript. Findings that predate them are recorded in
-    // eslint-suppressions.json (ESLint bulk suppressions), so only new code has to pass.
+    // Type-aware rules for TypeScript. No bulk suppressions (eslint-suppressions.json): a finding
+    // is fixed, or disabled on its line with `-- reason`; an unused disable fails (max-warnings 0).
     files: ['**/*.{ts,tsx}'],
     extends: tseslint.configs.strictTypeChecked.map(withoutTsPlugin),
     languageOptions: {
@@ -53,6 +53,35 @@ export default defineConfig([
         projectService: true,
         tsconfigRootDir: __dirname,
       },
+    },
+    rules: {
+      '@typescript-eslint/no-floating-promises': [
+        'error',
+        {
+          // node:test's test() returns a promise that only reports completion: it is fulfilled
+          // when the test ends, failed or not, and the runner tracks the test itself.
+          allowForKnownSafeCalls: [
+            {
+              from: 'package',
+              name: ['test', 'it', 'describe', 'suite'],
+              package: 'node:test',
+            },
+          ],
+        },
+      ],
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        {
+          // strictTypeChecked's options with numbers allowed, as in recommendedTypeChecked: a
+          // number has one string form, while booleans, null, arrays and objects stay errors.
+          allowAny: false,
+          allowBoolean: false,
+          allowNever: false,
+          allowNullish: false,
+          allowNumber: true,
+          allowRegExp: false,
+        },
+      ],
     },
   },
   {

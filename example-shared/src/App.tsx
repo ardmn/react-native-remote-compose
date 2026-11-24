@@ -65,7 +65,10 @@ export function DemoApp({ title }: { title: string }) {
     const launchLink: unknown =
       Platform.OS === 'ios' ? Settings.get('rcdemoLink') : undefined;
     if (typeof launchLink === 'string' && launchLink) apply(launchLink);
-    else Linking.getInitialURL().then(apply);
+    else
+      Linking.getInitialURL().then(apply, (error: unknown) => {
+        console.warn(`Could not read the launch link: ${String(error)}`);
+      });
     const sub = Linking.addEventListener('url', ({ url }) => {
       apply(url);
     });

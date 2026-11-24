@@ -1,16 +1,18 @@
 /**
  * Demo documents. The JSON files are the source; `yarn documents` turns them into `.rc` with
- * AndroidX's parser (tools/remote-compose-json), and both are bundled so the JSON path (Android)
- * and the `.rc` path (both platforms) can be compared on the same screen.
+ * AndroidX's parser (tools/remote-compose-json). The `.rc` files are bundled for both platforms;
+ * pulse.json is bundled too, so the JSON path (Android) and the `.rc` path can be compared on the
+ * same screen.
  */
+import pulseJsonDocument from '../documents/json/pulse.json';
+
+// Metro bundles a `.rc` file as an asset only through require(), which returns its asset id; the
+// require() is untyped, hence the inline exceptions.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment -- Metro asset require
 export const productCardRc: number = require('../documents/rc/product_card.rc');
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment -- Metro asset require
 export const pulseRc: number = require('../documents/rc/pulse.rc');
-/**
- * Bundled for a JSON-vs-`.rc` comparison that no screen shows yet.
- * @knipignore
- */
-export const productCardJson: object = require('../documents/json/product_card.json');
-export const pulseJson: object = require('../documents/json/pulse.json');
+export const pulseJson: object = pulseJsonDocument;
 
 /** Real AndroidX-captured documents, pinned to the rc-players 3.12.1 tag. */
 const FIXTURES =

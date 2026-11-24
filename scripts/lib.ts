@@ -5,21 +5,19 @@
  * failing command stops the script with a message that names the log and what to do.
  */
 import crossSpawn from 'cross-spawn';
-import { createHash } from 'node:crypto';
 import {
   closeSync,
   existsSync,
-  mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { deflateRawSync, constants as zlib } from 'node:zlib';
+import { ensureVerifiedFile } from './verified-download.ts';
 
 export const ROOT = resolve(import.meta.dirname, '..');
 export const IS_WINDOWS = process.platform === 'win32';
@@ -36,8 +34,11 @@ export const DEMO = {
   iosAppName: 'RemoteComposeExample.app',
 } as const;
 
-const env = (name: string): string | undefined =>
-  process.env[name] || undefined;
+function env(name: string): string | undefined {
+  // unknown: process.env's values are `any` in this repository's TypeScript program.
+  const value: unknown = process.env[name];
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
 
 /** The Android SDK: ANDROID_HOME (or the older ANDROID_SDK_ROOT), else Android Studio's default. */
 const ANDROID_SDK =
@@ -55,8 +56,9 @@ const ANDROID_SDK =
 const ADB = join(ANDROID_SDK, 'platform-tools', IS_WINDOWS ? 'adb.exe' : 'adb');
 
 /** The JDK Gradle uses: JAVA_HOME, else `java` on the PATH. */
-const JAVA = env('JAVA_HOME')
-  ? join(env('JAVA_HOME')!, 'bin', IS_WINDOWS ? 'java.exe' : 'java')
+const JAVA_HOME = env('JAVA_HOME');
+const JAVA = JAVA_HOME
+  ? join(JAVA_HOME, 'bin', IS_WINDOWS ? 'java.exe' : 'java')
   : 'java';
 
 /** The Gradle wrapper of a project directory, as this OS runs it. */
@@ -107,7 +109,9 @@ export function run(
       const detail = options.log
         ? `see ${options.log}`
         : (result.stderr || result.stdout).slice(-2000);
-      throw new Error(`${shown} exited with ${result.status} — ${detail}`);
+      throw new Error(
+        `${shown} exited with ${String(result.status)} — ${detail}`
+      );
     }
     return logFd === undefined ? result.stdout : '';
   } finally {
@@ -194,7 +198,7 @@ export function buildAndroidRelease(build: AndroidBuild): string {
       'clean',
       build.output === 'apk' ? ':app:assembleRelease' : ':app:bundleRelease',
       `-PreactNativeArchitectures=${build.abi}`,
-      `-PenableProguardInReleaseBuilds=${build.r8}`,
+      `-PenableProguardInReleaseBuilds=${String(build.r8)}`,
     ],
     { cwd: project, env: build.env, log: build.log }
   );
@@ -225,25 +229,14 @@ const BUNDLETOOL = {
   sha256: 'a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29',
 } as const;
 
-/** Google's bundletool jar, downloaded once into build/tools and verified against its checksum. */
+/** Google's bundletool jar in build/tools, downloaded when missing or when it fails its checksum. */
 async function bundletoolJar(): Promise<string> {
   const name = `bundletool-all-${BUNDLETOOL.version}.jar`;
   const jar = join(ROOT, 'build/tools', name);
-  if (!existsSync(jar)) {
-    const url = `https://github.com/google/bundletool/releases/download/${BUNDLETOOL.version}/${name}`;
-    const response = await fetch(url);
-    if (!response.ok)
-      throw new Error(`Downloading ${url} failed: HTTP ${response.status}`);
-    const bytes = Buffer.from(await response.arrayBuffer());
-    const digest = createHash('sha256').update(bytes).digest('hex');
-    if (digest !== BUNDLETOOL.sha256) {
-      throw new Error(
-        `${url} has checksum ${digest}, expected ${BUNDLETOOL.sha256}; refusing to run it.`
-      );
-    }
-    mkdirSync(join(ROOT, 'build/tools'), { recursive: true });
-    writeFileSync(jar, bytes);
-  }
+  await ensureVerifiedFile(jar, {
+    url: `https://github.com/google/bundletool/releases/download/${BUNDLETOOL.version}/${name}`,
+    sha256: BUNDLETOOL.sha256,
+  });
   return jar;
 }
 

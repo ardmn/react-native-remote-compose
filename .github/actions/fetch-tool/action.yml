@@ -1,0 +1,78 @@
+name: Fetch a pinned tool
+description: >-
+  Restores the tool's release file from the cache, or downloads it; checks its SHA-256 either way
+  (a cached copy that fails is downloaded again); installs it on PATH for the job's later steps; and
+  saves a new download to the cache at once, so a later failing step does not lose it. The caller
+  names the release URL and its SHA-256, so the pinned version stays visible in the workflow. Needs
+  the checkout and Node from .nvmrc (scripts/fetch-tool.ts runs with Node's TypeScript support).
+
+inputs:
+  name:
+    description: The file name the tool is installed under (a command name, or a jar's name).
+    required: true
+  url:
+    description: The release asset to download (a zip, a tar archive in any compression tar detects, or the tool itself).
+    required: true
+  sha256:
+    description: The SHA-256 of the downloaded file, from the official release.
+    required: true
+  archive-path:
+    description: The tool's path inside the archive; empty when the download is the tool itself.
+    required: false
+    default: ''
+
+outputs:
+  path:
+    description: The installed file, for tools run by path (a jar).
+    value: ${{ steps.fetch.outputs.path }}
+  downloaded:
+    description: "'true' when the file was downloaded (no cache entry, or a corrupted one), else 'false'."
+    value: ${{ steps.fetch.outputs.downloaded }}
+
+runs:
+  using: composite
+  steps:
+    # The cache entry is named after the URL and the checksum together. A version bump that changes
+    # the URL but not the pinned checksum misses the cache, so the new file is downloaded and fails
+    # its check, instead of the old file being restored and passing it.
+    - name: Cache entry for ${{ inputs.name }}
+      id: entry
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        URL: ${{ inputs.url }}
+        SHA256: ${{ inputs.sha256 }}
+      run: >-
+        node -e 'const id = require("node:crypto").createHash("sha256")
+        .update(process.env.URL + "\n" + process.env.SHA256).digest("hex").slice(0, 32);
+        console.log("id=" + process.env.NAME + "-" + id)' >> "$GITHUB_OUTPUT"
+
+    # An entry only ever holds a file that passed the check (it is saved below only after it).
+    - name: Restore cached ${{ inputs.name }}
+      id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/ci-tools-cache/${{ steps.entry.outputs.id }}
+        key: ci-tools-${{ runner.os }}-${{ steps.entry.outputs.id }}
+
+    - name: Download, verify and install ${{ inputs.name }}
+      id: fetch
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        URL: ${{ inputs.url }}
+        SHA256: ${{ inputs.sha256 }}
+        ARCHIVE_PATH: ${{ inputs.archive-path }}
+        CACHE_FILE: ${{ runner.temp }}/ci-tools-cache/${{ steps.entry.outputs.id }}
+        CACHE_KEY: ci-tools-${{ runner.os }}-${{ steps.entry.outputs.id }}
+      run: node scripts/fetch-tool.ts
+
+    # A cache entry cannot be overwritten, and one that is restored on every run never expires.
+    # After a corrupted hit (downloaded again above, with a warning naming the key) every run
+    # downloads until someone deletes the entry with `gh cache delete <key>`.
+    - name: Save ${{ inputs.name }} to the cache
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/ci-tools-cache/${{ steps.entry.outputs.id }}
+        key: ci-tools-${{ runner.os }}-${{ steps.entry.outputs.id }}

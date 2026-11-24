@@ -108,7 +108,9 @@ let failRun: (error: unknown) => void = () => {};
 
 const server = createServer((request, response) => {
   let data = '';
-  request.on('data', (chunk) => (data += chunk));
+  // Decoded as UTF-8 across chunk boundaries; the chunks are then strings.
+  request.setEncoding('utf8');
+  request.on('data', (chunk: string) => (data += chunk));
   request.on('end', () => {
     let body: unknown;
     try {
@@ -147,7 +149,7 @@ function nextResult(): Promise<PerfReport> {
       reject(
         new Error(
           `No result from the app within ${RESULT_TIMEOUT_MS / 1000} s. Check that it launched on the Performance tab, ` +
-            `and look for RC_PERF_POST_FAILED in its log (Android: adb logcat; iOS: the simulator's console). ` +
+            `and look for RC_PERF_POST_FAILED or RC_PERF_FAILED in its log (Android: adb logcat; iOS: the simulator's console). ` +
             (platform === 'android'
               ? `adb reverse tcp:${port} must be in place.`
               : '')
@@ -156,14 +158,14 @@ function nextResult(): Promise<PerfReport> {
     }, RESULT_TIMEOUT_MS);
     failRun = (error) => {
       clearTimeout(timer);
-      reject(error);
+      reject(error instanceof Error ? error : new Error(String(error)));
     };
     deliverResult = (body) => {
       clearTimeout(timer);
       try {
         resolve(parseReport(body));
       } catch (e) {
-        reject(e);
+        reject(e instanceof Error ? e : new Error(String(e)));
       }
     };
   });

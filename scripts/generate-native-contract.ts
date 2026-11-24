@@ -397,7 +397,7 @@ function buildContract(
   );
   if (unusedUnions.length > 0) {
     throw new Error(
-      `STRING_UNION_FIELDS has entries the spec no longer has as strings: ${unusedUnions}`
+      `STRING_UNION_FIELDS has entries the spec no longer has as strings: ${unusedUnions.join(', ')}`
     );
   }
   const unused = Object.keys(NAMES).filter(
@@ -407,7 +407,9 @@ function buildContract(
       !events.some((e) => e.key === key)
   );
   if (unused.length > 0) {
-    throw new Error(`NAMES has entries the spec no longer has: ${unused}`);
+    throw new Error(
+      `NAMES has entries the spec no longer has: ${unused.join(', ')}`
+    );
   }
   return { props, enums, propStructs, events };
 }
@@ -800,29 +802,36 @@ function cppEnumConversions(model: EnumModel): string {
       .map((v) => `    case ${from(v)}:\n      return ${to(v)};`)
       .join('\n');
   const objcCase = (v: string) => `${swiftName}${capitalize(v)}`;
-  if (model.cpp === null) {
-    // Travels as a std::string: match the spelling, else the spec's default.
+  const cpp = model.cpp;
+  if (cpp === null) {
+    // Travels as a std::string: match the spelling, else the spec's default (an event enum has
+    // none: its first value).
+    const fallback =
+      model.direction === 'toNative' ? model.default : model.values[0];
+    if (fallback === undefined) {
+      throw new Error(`${swiftName} has no values to fall back to`);
+    }
     return [
       `inline ${swiftName} to${swiftName}(const std::string &value) {`,
       ...model.values.map(
         (v) => `  if (value == "${v}") {\n    return ${objcCase(v)};\n  }`
       ),
-      `  return ${objcCase(model.direction === 'toNative' ? model.default : model.values[0]!)};`,
+      `  return ${objcCase(fallback)};`,
       '}',
     ].join('\n');
   }
-  const cppCase = (v: string) => `${model.cpp}::${capitalize(v)}`;
+  const cppCase = (v: string) => `${cpp}::${capitalize(v)}`;
   // Prop enums travel C++ → Swift; event enums Swift → C++.
   return model.direction === 'toNative'
     ? [
-        `inline ${swiftName} toObjC(${model.cpp} value) {`,
+        `inline ${swiftName} toObjC(${cpp} value) {`,
         '  switch (value) {',
         cases(cppCase, objcCase),
         '  }',
         '}',
       ].join('\n')
     : [
-        `inline ${model.cpp} toCpp(${swiftName} value) {`,
+        `inline ${cpp} toCpp(${swiftName} value) {`,
         '  switch (value) {',
         cases(objcCase, cppCase),
         '  }',
@@ -859,7 +868,9 @@ function objcInit(model: StructModel, source: string): string {
     }
     return `${i === 0 ? '' : f.name}:${value}`;
   });
-  const first = capitalize(model.fields[0]!.name);
+  const [firstField] = model.fields;
+  if (firstField === undefined) throw new Error(`${model.name} has no fields`);
+  const first = capitalize(firstField.name);
   return `[[${SWIFT_PREFIX}${model.name} alloc] initWith${first}${args.join('\n      ')}]`;
 }
 

@@ -1,5 +1,6 @@
 package com.remotecompose
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
@@ -48,6 +49,9 @@ internal object DocumentLoader {
     }
 
     private suspend fun loadUri(context: Context, source: DocumentSource.Uri): ByteArray {
+        // UseKtx: toUri() is core-ktx, which this library does not declare. Declaring it would put a
+        // minimum core-ktx version on every app for a one-line wrapper around Uri.parse.
+        @SuppressLint("UseKtx")
         val uri = Uri.parse(source.uri)
         return when {
             URLUtil.isNetworkUrl(source.uri) -> loadHttp(source)
@@ -68,7 +72,8 @@ internal object DocumentLoader {
         val request =
             Request.Builder()
                 .url(source.uri)
-                .headers(Headers.headersOf(*source.headers.toTypedArray()))
+                // A few header strings copied once per request: the copy the rule warns about is negligible.
+                .headers(@Suppress("SpreadOperator") Headers.headersOf(*source.headers.toTypedArray()))
                 .build()
         val call = httpClient.newCall(request)
         return suspendCancellableCoroutine { continuation ->
@@ -87,6 +92,8 @@ internal object DocumentLoader {
         }
     }
 
+    // One throw per way a response can fail, each with its own message for onError.
+    @Suppress("ThrowsCount")
     private fun readBody(response: Response, uri: String): ByteArray {
         if (!response.isSuccessful) throw IOException("HTTP ${response.code} for $uri")
         val body = response.body ?: throw IOException("Empty response for $uri")

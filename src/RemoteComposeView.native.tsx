@@ -19,7 +19,7 @@ function convertSource(
   source: RemoteComposeViewProps['source']
 ):
   | { props: NativeSourceProps; error?: undefined }
-  | { props: {}; error: string } {
+  | { props: Record<string, never>; error: string } {
   try {
     return { props: toNativeSource(source) };
   } catch (e) {
