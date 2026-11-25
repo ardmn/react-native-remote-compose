@@ -20,10 +20,10 @@ permissions:
   contents: read
 
 jobs:
-  # Decides whether the change can affect the iOS build, so build-ios (macOS: scarce, slow runners)
-  # runs only when it can. Conservative: see scripts/ios-affected.ts. A skipped job does not fail
-  # the run, so the release gate (CI passed for the tagged commit) is unaffected; a release commit
-  # changes package.json and always builds iOS.
+  # Decides whether a pull request can affect the iOS build, so build-ios (macOS: scarce, slow
+  # runners) runs only when it can. Conservative: see scripts/ios-affected.ts. Every push to main
+  # builds iOS, so main's status, a run cancelled by a later push, and the release gate (CI passed
+  # for the tagged commit, which is on main) never rest on a skipped build.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -47,13 +47,12 @@ jobs:
           EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          PUSH_BEFORE: ${{ github.event.before }}
         run: |
-          case "$EVENT" in
-            pull_request) node scripts/ios-affected.ts "$PR_BASE" "$PR_HEAD" ;;
-            push) node scripts/ios-affected.ts "$PUSH_BEFORE" "$GITHUB_SHA" ;;
-            *) echo "ios=true" | tee -a "$GITHUB_OUTPUT" ;; # merge queue and anything else: build
-          esac
+          if [ "$EVENT" = pull_request ]; then
+            node scripts/ios-affected.ts "$PR_BASE" "$PR_HEAD"
+          else
+            echo "ios=true" | tee -a "$GITHUB_OUTPUT" # push to main, merge queue: always build
+          fi
 
   lint:
     runs-on: ubuntu-latest

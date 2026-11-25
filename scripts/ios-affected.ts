@@ -1,17 +1,20 @@
 /**
- * Whether a change can affect the iOS build, so CI can skip the macOS job (scarce, slow runners)
- * when it cannot. Conservative: the job is skipped only when EVERY changed file matches a path
- * that the iOS build provably does not read; anything else, an empty list, or an unknown range
- * runs it.
+ * Whether a pull request can affect the iOS build, so CI can skip the macOS job (scarce, slow
+ * runners) when it cannot. Conservative: the job is skipped only when EVERY changed file matches a
+ * path that the iOS build provably does not read; anything else, an empty list, or an unknown range
+ * builds. Pushes to main always build (see ci.yml), so main and every release are always proven.
  *
  *   node scripts/ios-affected.ts <base> <head>   # prints ios=true|false, also to $GITHUB_OUTPUT
+ *
+ * The iOS build reads what turbo.json's `build:ios` inputs list; a test checks that no tracked file
+ * those inputs cover is ever treated as irrelevant here.
  */
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 
 /** Paths the iOS example build and the Swift unit tests never read. */
-const IOS_IRRELEVANT: readonly RegExp[] = [
-  /\.md$/, // documentation anywhere
+export const IOS_IRRELEVANT: readonly RegExp[] = [
+  /^[^/]+\.md$/, // top-level documentation (README, CONTRIBUTING, ...)
   /^docs\//,
   /^android\//, // the library's Android module
   /^example\/android\//,
@@ -32,16 +35,22 @@ export function iosAffected(paths: readonly string[]): boolean {
   );
 }
 
-/** A range git cannot resolve (a new branch's all-zero `before`) means "run the build". */
-function changedFiles(base: string, head: string): string[] | null {
+/**
+ * The files changed between the merge base of `base` and `head`, with both sides of a rename
+ * (`--no-renames`), so moving an iOS file into an ignored folder still counts. A range git cannot
+ * resolve (a new branch's all-zero `before`, history not fetched) means "run the build".
+ */
+export function changedFiles(
+  base: string,
+  head: string,
+  cwd?: string
+): string[] | null {
   if (!base || !head || /^0+$/.test(base)) return null;
   try {
     const out = execFileSync(
       'git',
-      ['diff', '--name-only', `${base}...${head}`],
-      {
-        encoding: 'utf8',
-      }
+      ['diff', '--name-only', '--no-renames', `${base}...${head}`],
+      { cwd, encoding: 'utf8' }
     );
     return out.split('\n').filter(Boolean);
   } catch {
