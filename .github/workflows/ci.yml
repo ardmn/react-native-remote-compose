@@ -20,6 +20,40 @@ permissions:
   contents: read
 
 jobs:
+  # Decides whether a pull request can affect the iOS build, so build-ios (macOS: scarce, slow
+  # runners) runs only when it can. Conservative: see scripts/ios-affected.ts. Every push to main
+  # builds iOS, so main's status, a run cancelled by a later push, and the release gate (CI passed
+  # for the tagged commit, which is on main) never rest on a skipped build.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ios: ${{ steps.ios.outputs.ios }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Can the change affect the iOS build?
+        id: ios
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            node scripts/ios-affected.ts "$PR_BASE" "$PR_HEAD"
+          else
+            echo "ios=true" | tee -a "$GITHUB_OUTPUT" # push to main, merge queue: always build
+          fi
+
   lint:
     runs-on: ubuntu-latest
 
@@ -343,6 +377,8 @@ jobs:
           yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}" --concurrency=1
 
   build-ios:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
     runs-on: macos-latest
 
     env:
